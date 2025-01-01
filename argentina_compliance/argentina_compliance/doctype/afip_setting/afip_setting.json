@@ -1,0 +1,52 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2024-12-27 16:22:29.221175",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "cuit",
+  "token",
+  "sign"
+ ],
+ "fields": [
+  {
+   "fieldname": "cuit",
+   "fieldtype": "Data",
+   "label": "CUIT"
+  },
+  {
+   "fieldname": "token",
+   "fieldtype": "Data",
+   "label": "Token"
+  },
+  {
+   "fieldname": "sign",
+   "fieldtype": "Data",
+   "label": "Sign"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "issingle": 1,
+ "links": [],
+ "modified": "2024-12-27 16:23:20.001212",
+ "modified_by": "Administrator",
+ "module": "Argentina Compliance",
+ "name": "AFIP Setting",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "print": 1,
+   "read": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}
