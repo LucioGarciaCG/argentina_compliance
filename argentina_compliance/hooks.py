@@ -152,7 +152,7 @@ doc_events = {
 # Scheduled Tasks
 # ---------------
 
-# scheduler_events = {
+scheduler_events = {
 # 	"all": [
 # 		"argentina_compliance.tasks.all"
 # 	],
@@ -168,7 +168,12 @@ doc_events = {
 # 	"monthly": [
 # 		"argentina_compliance.tasks.monthly"
 # 	],
-# }
+		"cron": {
+			"0 */12 * * *": [
+				"argentina_compliance.argentina_compliance.doc_events.afip_token.get_afip_token"
+			]
+		}
+}
 
 # Testing
 # -------

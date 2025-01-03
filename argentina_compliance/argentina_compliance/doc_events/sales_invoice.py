@@ -43,7 +43,10 @@ def generate_invoice(salesInvoice):
             frappe.throw("Missing AFIP credentials. Please check AFIP Settings.")
 
         # Initialize WSFE client
-        wsdl = 'https://wswhomo.afip.gov.ar/wsfev1/service.asmx?WSDL'
+        if afip_details.use_sandbox_environment:
+            wsdl = 'https://wswhomo.afip.gov.ar/wsfev1/service.asmx?WSDL'
+        else:
+            wsdl = 'https://servicios1.afip.gov.ar/wsfev1/service.asmx?WSDL'
         client = zeep.Client(wsdl=wsdl)
 
         # Prepare authentication data
@@ -240,13 +243,36 @@ def generate_invoice(salesInvoice):
 
 # Helper functions remain the same
 def get_invoice_type(sales_invoice):
-    """Map ERPNext invoice types to AFIP types"""
+    """
+    Map ERPNext invoice types to AFIP types
+    
+    Args:
+        sales_invoice: Sales Invoice document
+        
+    Returns:
+        int: AFIP invoice type code
+            1: Factura A (Registered Responsible)
+            6: Factura B (Final Consumer, Exempt)
+            11: Factura C (Monotributo)
+            Default is 1 if status not found
+    """
     mapping = {
-        "A": 1,  # Factura A
-        "B": 6,  # Factura B
-        "C": 11  # Factura C
+        "Final Consumer": 6,
+        "Exempt": 6,
+        "Monotributo Manager": 11,
+        "Registered Responsible": 1,
+        "Uncategorized": 1
     }
-    return mapping.get(sales_invoice.custom_type_of_invoice, 1)
+    
+    # Get customer VAT status from custom field
+    vat_status = frappe.get_value(
+        "Customer", 
+        sales_invoice.customer, 
+        "custom_vat_status"
+    )
+    
+    # Return mapped invoice type or default to 1 if status not found
+    return mapping.get(vat_status, 1)
 
 def get_doc_type(customer):
     """Map customer document types to AFIP types"""
@@ -406,18 +432,15 @@ def cancel_invoice(self, method):
 
         # Get POS number and invoice type
         pos_number = int(sales_invoice.pos_profile) if sales_invoice.pos_profile else 1
-        invoice_type = get_invoice_type(sales_invoice)
+        invoice_type = str(get_invoice_type(sales_invoice))
         current_number = extract_invoice_number(sales_invoice.name)
 
         # Prepare cancellation request
         cancel_data = {
-            'FeDetReq': {
-                'FECAEDetRequest': [{
-                    'CbteDesde': current_number,
-                    'CbteHasta': current_number,
-                    'CbteTipo': invoice_type,
-                    'PtoVta': pos_number
-                }]
+            'FeCompConsReq': {  # Changed from FeDetReq
+                'CbteTipo': invoice_type,  # This was missing in original request
+                'CbteNro': current_number,
+                'PtoVta': pos_number
             }
         }
 
@@ -429,7 +452,7 @@ def cancel_invoice(self, method):
 
         try:
             # Call AFIP webservice to cancel the invoice
-            response = client.service.CompConsultar(auth, cancel_data)
+            response = client.service.FeDetReq(auth, cancel_data)
             
             # Log raw response for debugging
             frappe.log_error(

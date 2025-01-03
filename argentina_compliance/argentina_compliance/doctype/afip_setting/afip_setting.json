@@ -7,7 +7,8 @@
  "field_order": [
   "cuit",
   "token",
-  "sign"
+  "sign",
+  "use_sandbox_environment"
  ],
  "fields": [
   {
@@ -24,12 +25,18 @@
    "fieldname": "sign",
    "fieldtype": "Data",
    "label": "Sign"
+  },
+  {
+   "default": "0",
+   "fieldname": "use_sandbox_environment",
+   "fieldtype": "Check",
+   "label": "Use SandBox Environment"
   }
  ],
  "index_web_pages_for_search": 1,
  "issingle": 1,
  "links": [],
- "modified": "2024-12-27 16:23:20.001212",
+ "modified": "2025-01-02 16:26:19.818821",
  "modified_by": "Administrator",
  "module": "Argentina Compliance",
  "name": "AFIP Setting",
