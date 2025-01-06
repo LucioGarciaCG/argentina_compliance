@@ -138,16 +138,13 @@ doctype_js = {"Sales Invoice" : "public/js/doctype_js/sales_invoice.js"}
 # ---------------
 # Hook on document methods and events
 
-doc_events = {
+# doc_events = {
 	# "*": {
 	# 	"on_update": "method",
 	# 	"on_cancel": "method",
 	# 	"on_trash": "method"
-	# }
-    "Sales Invoice":{
-        "on_cancel": "argentina_compliance.argentina_compliance.doc_events.sales_invoice.cancel_invoice"
-    }
-}
+	# }  
+# }
 
 # Scheduled Tasks
 # ---------------

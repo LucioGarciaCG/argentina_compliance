@@ -7,19 +7,203 @@ from zeep.exceptions import Fault
 import traceback
 
 
-def extract_invoice_number(sales_invoice_name):
+def extract_invoice_number(invoice_name, invoice_type):
     """
-    Safely extracts invoice number from sales invoice name
-    handling 2, 3, or 4 digit numbers
+    Extract the numeric sequence from invoice name
+    Args:
+        invoice_name (str): Full invoice name (e.g., 'ACC-SINV-2025-00035')
+        invoice_type (int): AFIP invoice type
+    Returns:
+        int: Sequence number for AFIP
     """
     try:
-        # Split by hyphen and get the last part
-        number_part = sales_invoice_name.split('-')[-1]
-        # Remove any leading zeros and convert to int
-        clean_number = int(number_part.lstrip('0'))
-        return clean_number
-    except (ValueError, IndexError) as e:
-        frappe.throw(f"Invalid invoice number format: {sales_invoice_name}")
+        # Debug log
+        frappe.log_error(
+            message=f"Extracting number from: {invoice_name} for type: {invoice_type}",
+            title="Invoice Number Extraction Debug"
+        )
+        
+        # Split the invoice name and get the last part
+        parts = invoice_name.split('-')
+        if len(parts) < 2:
+            frappe.throw(f"Invalid invoice name format: {invoice_name}")
+        
+        # Get the last numeric part and remove leading zeros
+        numeric_part = parts[-1].lstrip('0')
+        if not numeric_part:
+            numeric_part = "0"  # Handle case where number is all zeros
+            
+        if not numeric_part.isdigit():
+            frappe.throw(f"Could not extract numeric sequence from invoice name: {invoice_name}")
+        
+        # Get the number from AFIP to verify
+        pos_number = 1  # Default POS number, adjust if needed
+        afip_details = frappe.get_doc("AFIP Setting")
+        client = get_afip_client(afip_details)
+        
+        auth = {
+            'Token': afip_details.token.strip(),
+            'Sign': afip_details.sign.strip(),
+            'Cuit': int(afip_details.cuit)
+        }
+        
+        last_afip_number = get_last_authorized_invoice(client, auth, pos_number, invoice_type)
+        next_afip_number = last_afip_number + 1
+        
+        # Debug log
+        frappe.log_error(
+            message=f"""
+            Invoice parsing details:
+            - Original invoice name: {invoice_name}
+            - Parts: {parts}
+            - Extracted number: {numeric_part}
+            - Converted to int: {int(numeric_part)}
+            - Last AFIP number: {last_afip_number}
+            - Next AFIP number: {next_afip_number}
+            """,
+            title="Invoice Number Details"
+        )
+        
+        # Return the next AFIP number to ensure sequence
+        return next_afip_number
+        
+    except Exception as e:
+        frappe.throw(f"Error extracting invoice number: {str(e)}")
+
+def get_invoice_type(sales_invoice):
+    """
+    Map ERPNext invoice types to AFIP types
+    Args:
+        sales_invoice: Sales Invoice document
+    Returns:
+        int: AFIP invoice type code
+    """
+    try:
+        # Debug log
+        frappe.log_error(
+            message=f"Getting invoice type for invoice: {sales_invoice.name}",
+            title="Invoice Type Debug"
+        )
+        
+        # Get customer VAT status
+        vat_status = frappe.get_value(
+            "Customer", 
+            sales_invoice.customer, 
+            "custom_vat_status"
+        )
+        
+        # Debug log customer details
+        frappe.log_error(
+            message=f"""
+            Customer VAT details:
+            - Customer: {sales_invoice.customer}
+            - VAT Status: {vat_status}
+            """,
+            title="Customer VAT Status"
+        )
+        
+        mapping = {
+            "Final Consumer": 6,
+            "Exempt": 6,
+            "Monotributo Manager": 11,
+            "Registered Responsible": 1,
+            "Uncategorized": 1
+        }
+        
+        invoice_type = mapping.get(vat_status, 1)
+        
+        # Debug log result
+        frappe.log_error(
+            message=f"Mapped invoice type: {invoice_type}",
+            title="Invoice Type Result"
+        )
+        
+        return invoice_type
+        
+    except Exception as e:
+        frappe.log_error(
+            message=f"Error in get_invoice_type: {str(e)}",
+            title="Invoice Type Error"
+        )
+        return 1  # Default to type 1 if error occurs
+
+def get_next_number(invoice_type, pos_number):
+    """
+    Get the next available number for a specific invoice type and POS
+    Args:
+        invoice_type (int): AFIP invoice type
+        pos_number (int): Point of Sale number
+    Returns:
+        int: Next available number
+    """
+    try:
+        # Get AFIP settings and client
+        afip_details = frappe.get_doc("AFIP Setting")
+        client = get_afip_client(afip_details)
+        
+        # Get authentication data
+        auth = {
+            'Token': afip_details.token.strip(),
+            'Sign': afip_details.sign.strip(),
+            'Cuit': int(afip_details.cuit)
+        }
+        
+        # Get last authorized number from AFIP
+        last_number = get_last_authorized_invoice(client, auth, pos_number, invoice_type)
+        
+        return last_number + 1
+        
+    except Exception as e:
+        frappe.throw(f"Error getting next invoice number: {str(e)}")
+
+def validate_invoice_sequence(sales_invoice):
+    """
+    Validate invoice sequence before submitting to AFIP
+    Args:
+        sales_invoice (object): Sales Invoice document
+    """
+    try:
+        pos_number = int(sales_invoice.pos_profile) if sales_invoice.pos_profile else 1
+        invoice_type = get_invoice_type(sales_invoice)
+        
+        # Get the numeric sequence from invoice name
+        current_number = extract_invoice_number(sales_invoice.name, invoice_type)
+        
+        # Get what should be the next number from AFIP
+        expected_number = get_next_number(invoice_type, pos_number)
+        
+        if current_number != expected_number:
+            frappe.throw(
+                f"Invalid invoice sequence for type {invoice_type}. Expected {expected_number}, "
+                f"got {current_number}. Please check the last authorized invoice in AFIP."
+            )
+            
+    except Exception as e:
+        frappe.throw(f"Error validating invoice sequence: {str(e)}")
+
+def get_afip_client(afip_details):
+    """
+    Initialize and return AFIP SOAP client based on environment settings
+    
+    Args:
+        afip_details: AFIP Setting document with configuration
+        
+    Returns:
+        zeep.Client: Initialized SOAP client for AFIP web services
+    """
+    try:
+        # Determine WSDL URL based on environment
+        if afip_details.use_sandbox_environment:
+            wsdl = 'https://wswhomo.afip.gov.ar/wsfev1/service.asmx?WSDL'
+        else:
+            wsdl = 'https://servicios1.afip.gov.ar/wsfev1/service.asmx?WSDL'
+            
+        # Initialize ZEEP client
+        client = zeep.Client(wsdl=wsdl)
+        return client
+        
+    except Exception as e:
+        frappe.throw(f"Error initializing AFIP client: {str(e)}")
 
 def get_last_authorized_invoice(client, auth, pos_number, invoice_type):
     """
@@ -43,11 +227,7 @@ def generate_invoice(salesInvoice):
             frappe.throw("Missing AFIP credentials. Please check AFIP Settings.")
 
         # Initialize WSFE client
-        if afip_details.use_sandbox_environment:
-            wsdl = 'https://wswhomo.afip.gov.ar/wsfev1/service.asmx?WSDL'
-        else:
-            wsdl = 'https://servicios1.afip.gov.ar/wsfev1/service.asmx?WSDL'
-        client = zeep.Client(wsdl=wsdl)
+        client = get_afip_client(afip_details)
 
         # Prepare authentication data
         auth = {
@@ -64,13 +244,17 @@ def generate_invoice(salesInvoice):
         pos_number = int(sales_invoice.pos_profile) if sales_invoice.pos_profile else 1
         invoice_type = get_invoice_type(sales_invoice)
 
-        # Validate invoice number sequence
+        # Get the numeric sequence from invoice name
+        current_number = extract_invoice_number(sales_invoice.name, invoice_type)
+
+        # Get last authorized number from AFIP
         last_invoice = get_last_authorized_invoice(client, auth, pos_number, invoice_type)
-        current_number = extract_invoice_number(sales_invoice.name)
-        
-        if current_number != last_invoice + 1:
+        expected_number = last_invoice + 1
+
+        # Validate invoice number sequence
+        if current_number != expected_number:
             frappe.throw(
-                f"Invalid invoice number sequence. Expected {last_invoice + 1}, got {current_number}. "
+                f"Invalid invoice number sequence. Expected {expected_number}, got {current_number}. "
                 "Please check the last authorized invoice in AFIP."
             )
 
@@ -241,38 +425,6 @@ def generate_invoice(salesInvoice):
             title="AFIP Error"
         )
 
-# Helper functions remain the same
-def get_invoice_type(sales_invoice):
-    """
-    Map ERPNext invoice types to AFIP types
-    
-    Args:
-        sales_invoice: Sales Invoice document
-        
-    Returns:
-        int: AFIP invoice type code
-            1: Factura A (Registered Responsible)
-            6: Factura B (Final Consumer, Exempt)
-            11: Factura C (Monotributo)
-            Default is 1 if status not found
-    """
-    mapping = {
-        "Final Consumer": 6,
-        "Exempt": 6,
-        "Monotributo Manager": 11,
-        "Registered Responsible": 1,
-        "Uncategorized": 1
-    }
-    
-    # Get customer VAT status from custom field
-    vat_status = frappe.get_value(
-        "Customer", 
-        sales_invoice.customer, 
-        "custom_vat_status"
-    )
-    
-    # Return mapped invoice type or default to 1 if status not found
-    return mapping.get(vat_status, 1)
 
 def get_doc_type(customer):
     """Map customer document types to AFIP types"""
@@ -397,24 +549,22 @@ def generate_qr_code(invoice, cae, cae_vto):
 
 @frappe.whitelist()
 def cancel_invoice(salesInvoice):
-    """
-    Cancel an AFIP invoice by generating a credit note (Nota de Crédito)
-    
-    Args:
-        salesInvoice (str): The name/ID of the Sales Invoice to cancel
-    """
     try:
         # Get AFIP settings
         afip_details = frappe.get_doc("AFIP Setting")
         if not all([afip_details.token, afip_details.sign, afip_details.cuit]):
             frappe.throw("Missing AFIP credentials. Please check AFIP Settings.")
 
+        # Get sales invoice details
+        sales_invoice = frappe.get_doc("Sales Invoice", salesInvoice)
+        customer = frappe.get_doc("Customer", sales_invoice.customer)
+
+        # Get invoice type and POS number
+        original_invoice_type = get_invoice_type(sales_invoice)
+        pos_number = int(sales_invoice.pos_profile) if sales_invoice.pos_profile else 1
+
         # Initialize WSFE client
-        if afip_details.use_sandbox_environment:
-            wsdl = 'https://wswhomo.afip.gov.ar/wsfev1/service.asmx?WSDL'
-        else:
-            wsdl = 'https://servicios1.afip.gov.ar/wsfev1/service.asmx?WSDL'
-        client = zeep.Client(wsdl=wsdl)
+        client = get_afip_client(afip_details)
 
         # Create authentication header
         auth = {
@@ -423,65 +573,16 @@ def cancel_invoice(salesInvoice):
             'Cuit': int(afip_details.cuit)
         }
 
-        # Get sales invoice details
-        sales_invoice = frappe.get_doc("Sales Invoice", salesInvoice)
-        customer = frappe.get_doc("Customer", sales_invoice.customer)
-
-        # Detailed logging of invoice state
-        invoice_details = {
-            "invoice_name": salesInvoice,
-            "invoice_doctype": sales_invoice.doctype,
-            "docstatus": sales_invoice.docstatus,
-            "posting_date": str(sales_invoice.posting_date),
-            "grand_total": str(sales_invoice.grand_total),
-            "custom_fields": {
-                "custom_cae": getattr(sales_invoice, 'custom_cae', None),
-                "custom_caefchvto": getattr(sales_invoice, 'custom_caefchvto', None),
-                "custom_invoice_canceled": getattr(sales_invoice, 'custom_invoice_canceled', False),
-                "custom_credit_note_number": getattr(sales_invoice, 'custom_credit_note_number', None),
-                "custom_credit_note_cae": getattr(sales_invoice, 'custom_credit_note_cae', None)
-            },
-            "customer_details": {
-                "customer_name": sales_invoice.customer,
-                "tax_id": getattr(customer, 'tax_id', None),
-                "custom_customer_document_types": getattr(customer, 'custom_customer_document_types', None)
-            },
-            "all_custom_fields": {
-                key: getattr(sales_invoice, key, None) 
-                for key in dir(sales_invoice) 
-                if key.startswith('custom_')
-            }
-        }
-        
+        # Log starting state
         frappe.log_error(
-            message=f"Detailed invoice state during cancellation attempt:\n{json.dumps(invoice_details, indent=2)}",
-            title="AFIP Invoice Cancellation - Detailed Status"
+            message=f"Starting credit note generation for invoice: {salesInvoice}",
+            title="AFIP Credit Note - Start"
         )
-        
-        # Check if already cancelled in AFIP
-        if getattr(sales_invoice, 'custom_invoice_canceled', False):
-            frappe.log_error(
-                message=f"Cancellation attempted on already cancelled invoice:\n{json.dumps(invoice_details, indent=2)}",
-                title="AFIP Invoice Already Cancelled"
-            )
-            frappe.throw("This invoice has already been cancelled in AFIP.")
 
-        # Verify that the invoice has a CAE
+        # Verify CAE exists
         if not getattr(sales_invoice, 'custom_cae', None):
-            frappe.log_error(
-                message=f"Cancellation attempted without CAE:\n{json.dumps(invoice_details, indent=2)}",
-                title="AFIP Missing CAE"
-            )
-            frappe.throw(
-                msg="This invoice has not been authorized by AFIP yet. "
-                    "Please ensure the invoice has a valid CAE before cancellation.",
-                title="AFIP Authorization Required"
-            )
+            frappe.throw("This invoice has not been authorized by AFIP yet. Please ensure it has a valid CAE before cancellation.")
 
-        # Get POS number and determine credit note type
-        pos_number = int(sales_invoice.pos_profile) if sales_invoice.pos_profile else 1
-        original_invoice_type = get_invoice_type(sales_invoice)
-        
         # Map invoice types to credit note types
         credit_note_type_mapping = {
             1: 3,   # Factura A -> Nota de Crédito A
@@ -493,32 +594,19 @@ def cancel_invoice(salesInvoice):
         if not credit_note_type:
             frappe.throw(f"Unsupported invoice type for credit note: {original_invoice_type}")
 
-        # Get last authorized credit note number
+        # Get next credit note number
         last_credit_note = get_last_authorized_invoice(client, auth, pos_number, credit_note_type)
         next_credit_note_number = last_credit_note + 1
 
-        # Calculate amounts - ensure positive values for credit note
+        # Calculate amounts
         total_amount = abs(float(sales_invoice.grand_total))
         net_amount = abs(float(sales_invoice.net_total))
         vat_amount = abs(float(sales_invoice.total_taxes_and_charges))
-
-        # Get VAT rate from invoice and ensure it's positive
         vat_rate = 21.0  # Default VAT rate
-        if sales_invoice.taxes:
-            for tax in sales_invoice.taxes:
-                if tax.rate > 0:
-                    vat_rate = abs(tax.rate)
-                    break
-
-        # Log the amounts being used
-        frappe.log_error(
-            message=f"Credit Note Amounts:\n"
-                    f"Total Amount: {total_amount}\n"
-                    f"Net Amount: {net_amount}\n"
-                    f"VAT Amount: {vat_amount}\n"
-                    f"VAT Rate: {vat_rate}",
-            title="AFIP Credit Note - Amount Calculations"
-        )
+        for tax in sales_invoice.taxes:
+            if tax.rate > 0:
+                vat_rate = abs(tax.rate)
+                break
 
         # Create request data structure
         CbteAsoc = client.get_type('ns0:CbteAsoc')
@@ -527,42 +615,23 @@ def cancel_invoice(salesInvoice):
         ArrayOfAlicIva = client.get_type('ns0:ArrayOfAlicIva')
 
         # Create associated invoice array
+        original_number = extract_invoice_number(sales_invoice.name, original_invoice_type)
         cbte_asoc = CbteAsoc(
             Tipo=original_invoice_type,
             PtoVta=pos_number,
-            Nro=extract_invoice_number(sales_invoice.name)
+            Nro=original_number
         )
         cbtes_asoc_array = ArrayOfCbteAsoc([cbte_asoc])
 
-        # Create IVA array - ensure positive values
+        # Create IVA array
         alic_iva = AlicIva(
             Id=get_vat_rate_id(vat_rate),
-            BaseImp=round(abs(net_amount), 2),  # Ensure positive base amount
-            Importe=round(abs(vat_amount), 2)   # Ensure positive VAT amount
+            BaseImp=round(net_amount, 2),
+            Importe=round(vat_amount, 2)
         )
         array_alic_iva = ArrayOfAlicIva([alic_iva])
 
-        # Create FECAEDetRequest - ensure all amounts are positive
-        fecae_det_request = {
-            'Concepto': 1,  # Products
-            'DocTipo': get_doc_type(customer),
-            'DocNro': int(customer.tax_id) if customer.tax_id else 0,
-            'CbteDesde': next_credit_note_number,
-            'CbteHasta': next_credit_note_number,
-            'CbteFch': datetime.now().strftime('%Y%m%d'),
-            'ImpTotal': round(abs(total_amount), 2),
-            'ImpTotConc': 0.0,
-            'ImpNeto': round(abs(net_amount), 2),
-            'ImpOpEx': 0.0,
-            'ImpIVA': round(abs(vat_amount), 2),
-            'ImpTrib': 0.0,
-            'MonId': 'PES',
-            'MonCotiz': 1.0,
-            'CbtesAsoc': cbtes_asoc_array,
-            'Iva': array_alic_iva
-        }
-
-        # Create full request structure
+        # Create full request
         request_data = {
             'Auth': auth,
             'FeCAEReq': {
@@ -572,69 +641,70 @@ def cancel_invoice(salesInvoice):
                     'CbteTipo': credit_note_type
                 },
                 'FeDetReq': {
-                    'FECAEDetRequest': [fecae_det_request]
+                    'FECAEDetRequest': [{
+                        'Concepto': 1,
+                        'DocTipo': get_doc_type(customer),
+                        'DocNro': int(customer.tax_id) if customer.tax_id else 0,
+                        'CbteDesde': next_credit_note_number,
+                        'CbteHasta': next_credit_note_number,
+                        'CbteFch': datetime.now().strftime('%Y%m%d'),
+                        'ImpTotal': round(total_amount, 2),
+                        'ImpTotConc': 0.0,
+                        'ImpNeto': round(net_amount, 2),
+                        'ImpOpEx': 0.0,
+                        'ImpIVA': round(vat_amount, 2),
+                        'ImpTrib': 0.0,
+                        'MonId': 'PES',
+                        'MonCotiz': 1.0,
+                        'CbtesAsoc': cbtes_asoc_array,
+                        'Iva': array_alic_iva
+                    }]
                 }
             }
         }
 
-        # Log request data for debugging
+        # Log request data
         frappe.log_error(
-            message=f"AFIP Credit Note Request Data:\n{json.dumps(request_data, indent=2, default=str)}",
-            title="AFIP Debug - Credit Note Request"
+            message=f"Credit Note Request:\n{json.dumps(request_data, indent=2, default=str)}",
+            title="AFIP Credit Note - Request"
         )
 
         try:
             # Request CAE for credit note
             response = client.service.FECAESolicitar(**request_data)
             
-            # Log raw response for debugging
-            frappe.log_error(
-                message=f"AFIP Raw Response: {response}",
-                title="AFIP Debug - Credit Note Response"
-            )
-
-            # Check if response has Errors
-            if hasattr(response, 'Errors') and response.Errors:
-                error_msg = format_afip_errors(response.Errors)
-                frappe.throw(f"AFIP Error Response: {error_msg}")
-
-            # Process response
             if (hasattr(response, 'FeDetResp') and 
                 hasattr(response.FeDetResp, 'FECAEDetResponse')):
                 
                 det_resp = response.FeDetResp.FECAEDetResponse[0]
                 
-                # Log any observations
-                if hasattr(det_resp, 'Observaciones'):
-                    obs = det_resp.Observaciones.Obs 
-                    if isinstance(obs, list):
-                        obs_msg = "; ".join([
-                            f"Warning {o.Code}: {o.Msg}" 
-                            for o in obs
-                        ])
-                    else:
-                        obs_msg = f"Warning {obs.Code}: {obs.Msg}"
-                    frappe.msgprint(f"AFIP Warnings: {obs_msg}", indicator='orange')
-
-                # Check resultado and get CAE for credit note
                 if det_resp.Resultado == 'A' and det_resp.CAE:
                     credit_note_cae = det_resp.CAE
                     credit_note_cae_vto = det_resp.CAEFchVto
                     
-                    # Generate QR code for credit note
+                    # Generate QR code
                     qr_base64 = generate_qr_code(sales_invoice, credit_note_cae, credit_note_cae_vto)
 
-                    # Mark original invoice as cancelled
-                    frappe.db.set_value("Sales Invoice", salesInvoice, {
-                        # "custom_invoice_canceled": 1,
-                        # "custom_credit_note_number": next_credit_note_number,
+                    # Update only the necessary fields
+                    update_fields = {
                         "custom_cae": credit_note_cae,
                         "custom_caefchvto": credit_note_cae_vto,
                         "custom_qr_base64": qr_base64
-                    })
+                    }
+
+                    # Update the invoice with only existing fields
+                    for field, value in update_fields.items():
+                        try:
+                            frappe.db.set_value("Sales Invoice", salesInvoice, field, value)
+                        except Exception as field_error:
+                            frappe.log_error(
+                                message=f"Failed to update field {field}: {str(field_error)}",
+                                title="Field Update Error"
+                            )
+                    
                     frappe.db.commit()
                     
-                    frappe.msgprint(f"Credit note generated successfully with CAE: {credit_note_cae}")
+                    frappe.msgprint("Credit note generated successfully with CAE: " + credit_note_cae)
                     return {
                         "success": True,
                         "credit_note_number": next_credit_note_number,
@@ -653,30 +723,16 @@ def cancel_invoice(salesInvoice):
             else:
                 frappe.throw("Invalid response structure from AFIP")
 
-        except zeep.exceptions.Fault as e:
-            frappe.throw(f"AFIP Web Service Error: {str(e)}")
+        except Exception as e:
+            frappe.log_error(
+                message=f"AFIP Credit Note Error:\n{str(e)}\n\nTraceback:\n{traceback.format_exc()}",
+                title="AFIP Credit Note - Error"
+            )
+            frappe.throw(f"Error processing credit note: {str(e)}")
             
     except Exception as e:
-        error_msg = str(e)
-        if not error_msg or error_msg == "0":
-            detailed_error = {
-                "error_type": type(e).__name__,
-                "error_args": getattr(e, 'args', []),
-                "error_message": str(e),
-                "afip_details": {
-                    "token_exists": bool(afip_details.token),
-                    "sign_exists": bool(afip_details.sign),
-                    "cuit_exists": bool(afip_details.cuit)
-                }
-            }
-            error_msg = f"AFIP Credit Note Error - Details: {json.dumps(detailed_error, indent=2)}"
-        
         frappe.log_error(
-            message=f"AFIP Credit Note Generation Error:\n{error_msg}\n\nTraceback:\n{traceback.format_exc()}",
-            title="AFIP Credit Note Error - Detailed"
+            message=f"Credit Note Generation Failed:\n{str(e)}\n\nTraceback:\n{traceback.format_exc()}",
+            title="Credit Note - Fatal Error"
         )
-        
-        frappe.throw(
-            msg=f"Error generating credit note: {error_msg}. Please check error logs for details.",
-            title="AFIP Credit Note Error"
-        )    
+        frappe.throw(f"Failed to generate credit note: {str(e)}")
