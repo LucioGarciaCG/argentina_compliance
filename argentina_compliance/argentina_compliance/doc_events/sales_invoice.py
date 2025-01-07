@@ -385,7 +385,8 @@ def generate_invoice(salesInvoice):
                     frappe.db.set_value("Sales Invoice", salesInvoice, {
                         "custom_cae": cae,
                         "custom_caefchvto": cae_vto,
-                        "custom_qr_base64": qr_base64
+                        "custom_qr_base64": qr_base64,
+                        "custom_observations": obs_msg if (hasattr(det_resp, 'Observaciones') and det_resp.Observaciones) else ""
                     })
                     frappe.db.commit()
                     
