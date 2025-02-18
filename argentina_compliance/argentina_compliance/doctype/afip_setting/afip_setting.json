@@ -8,35 +8,55 @@
   "cuit",
   "token",
   "sign",
-  "use_sandbox_environment"
+  "use_sandbox_environment",
+  "column_break_phbr",
+  "certificate",
+  "private_key"
  ],
  "fields": [
   {
    "fieldname": "cuit",
    "fieldtype": "Data",
-   "label": "CUIT"
+   "label": "CUIT",
+   "translatable": 1
   },
   {
    "fieldname": "token",
    "fieldtype": "Data",
-   "label": "Token"
+   "label": "Token",
+   "translatable": 1
   },
   {
    "fieldname": "sign",
    "fieldtype": "Data",
-   "label": "Sign"
+   "label": "Sign",
+   "translatable": 1
   },
   {
    "default": "0",
    "fieldname": "use_sandbox_environment",
    "fieldtype": "Check",
    "label": "Use SandBox Environment"
+  },
+  {
+   "fieldname": "column_break_phbr",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "certificate",
+   "fieldtype": "Attach",
+   "label": "Certificate"
+  },
+  {
+   "fieldname": "private_key",
+   "fieldtype": "Attach",
+   "label": "Private key"
   }
  ],
  "index_web_pages_for_search": 1,
  "issingle": 1,
  "links": [],
- "modified": "2025-01-02 16:26:19.818821",
+ "modified": "2025-02-17 10:31:25.059087",
  "modified_by": "Administrator",
  "module": "Argentina Compliance",
  "name": "AFIP Setting",
