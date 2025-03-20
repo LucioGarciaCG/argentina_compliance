@@ -127,6 +127,64 @@ def get_invoice_type(sales_invoice):
         )
         return 1  # Default to type 1 if error occurs
 
+def get_customer_type(sales_invoice):
+    """
+    Map ERPNext invoice types to AFIP types
+    Args:
+        sales_invoice: Sales Invoice document
+    Returns:
+        int: AFIP invoice type code
+    """
+    try:
+        # Debug log
+        frappe.log_error(
+            message=f"Getting invoice type for invoice: {sales_invoice.name}",
+            title="Invoice Type Debug"
+        )
+        
+        # Get customer VAT status
+        vat_status = frappe.get_value(
+            "Customer", 
+            sales_invoice.customer, 
+            "custom_vat_status"
+        )
+        
+        # Debug log customer details
+        frappe.log_error(
+            message=f"""
+            Customer VAT details:
+            - Customer: {sales_invoice.customer}
+            - VAT Status: {vat_status}
+            """,
+            title="Customer VAT Status"
+        )
+        
+        mapping = {
+            "Final Consumer": "Consumidor Final",
+            "Exempt": "Exento",
+            "Monotributo Manager": "Responsable Monotributo",
+            "Registered Responsible": "Responsable Inscripto",
+            "Uncategorized": "No Categorizado",
+        }
+
+        
+        customer_type = mapping.get(vat_status, 1)
+        
+        # Debug log result
+        frappe.log_error(
+            message=f"Mapped invoice type: {customer_type}",
+            title="Invoice Type Result"
+        )
+        
+        return customer_type
+        
+    except Exception as e:
+        frappe.log_error(
+            message=f"Error in get_invoice_type: {str(e)}",
+            title="Invoice Type Error"
+        )
+        return 1  # Default to type 1 if error occurs
+
 def get_next_number(invoice_type, pos_number):
     """
     Get the next available number for a specific invoice type and POS
@@ -286,6 +344,7 @@ def generate_invoice(salesInvoice):
                     'DocTipo': get_doc_type(customer),
                     'DocNro': int(customer.tax_id) if customer.tax_id else 0,
                     'CbteDesde': current_number,
+                    'CondicionIVAReceptorId': get_customer_type(sales_invoice),
                     'CbteHasta': current_number,
                     'CbteFch': formatted_date,
                     'ImpTotal': round(total_amount, 2),
