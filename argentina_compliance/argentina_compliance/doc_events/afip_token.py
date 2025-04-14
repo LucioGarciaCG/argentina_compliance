@@ -31,10 +31,6 @@ def check_token_validity():
 
 
 def get_afip_token():
-    frappe.log_error(
-            message=f"AFIP Token Renewal",
-            title="AFIP Token Renewal - No Error"
-        )
     try:
         # First check if we have a valid token
         if check_token_validity():

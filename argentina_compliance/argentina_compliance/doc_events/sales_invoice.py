@@ -5,7 +5,7 @@ import base64
 import json
 from zeep.exceptions import Fault
 import traceback
-
+from argentina_compliance.argentina_compliance.doctype.afip_setting.afip_setting import log_electronic_invoice_error
 
 def extract_invoice_number(invoice_name, invoice_type):
     """
@@ -18,10 +18,10 @@ def extract_invoice_number(invoice_name, invoice_type):
     """
     try:
         # Debug log
-        frappe.log_error(
-            message=f"Extracting number from: {invoice_name} for type: {invoice_type}",
-            title="Invoice Number Extraction Debug"
-        )
+        # frappe.log_error(
+        #     message=f"Extracting number from: {invoice_name} for type: {invoice_type}",
+        #     title="Invoice Number Extraction Debug"
+        # )
         
         # Split the invoice name and get the last part
         parts = invoice_name.split('-')
@@ -51,18 +51,18 @@ def extract_invoice_number(invoice_name, invoice_type):
         next_afip_number = last_afip_number + 1
         
         # Debug log
-        frappe.log_error(
-            message=f"""
-            Invoice parsing details:
-            - Original invoice name: {invoice_name}
-            - Parts: {parts}
-            - Extracted number: {numeric_part}
-            - Converted to int: {int(numeric_part)}
-            - Last AFIP number: {last_afip_number}
-            - Next AFIP number: {next_afip_number}
-            """,
-            title="Invoice Number Details"
-        )
+        # frappe.log_error(
+        #     message=f"""
+        #     Invoice parsing details:
+        #     - Original invoice name: {invoice_name}
+        #     - Parts: {parts}
+        #     - Extracted number: {numeric_part}
+        #     - Converted to int: {int(numeric_part)}
+        #     - Last AFIP number: {last_afip_number}
+        #     - Next AFIP number: {next_afip_number}
+        #     """,
+        #     title="Invoice Number Details"
+        # )
         
         # Return the next AFIP number to ensure sequence
         return next_afip_number
@@ -79,11 +79,11 @@ def get_invoice_type(sales_invoice):
         int: AFIP invoice type code
     """
     try:
-        # Debug log
-        frappe.log_error(
-            message=f"Getting invoice type for invoice: {sales_invoice.name}",
-            title="Invoice Type Debug"
-        )
+        # # Debug log
+        # frappe.log_error(
+        #     message=f"Getting invoice type for invoice: {sales_invoice.name}",
+        #     title="Invoice Type Debug"
+        # )
         
         # Get customer VAT status
         vat_status = frappe.get_value(
@@ -93,14 +93,14 @@ def get_invoice_type(sales_invoice):
         )
         
         # Debug log customer details
-        frappe.log_error(
-            message=f"""
-            Customer VAT details:
-            - Customer: {sales_invoice.customer}
-            - VAT Status: {vat_status}
-            """,
-            title="Customer VAT Status"
-        )
+        # frappe.log_error(
+        #     message=f"""
+        #     Customer VAT details:
+        #     - Customer: {sales_invoice.customer}
+        #     - VAT Status: {vat_status}
+        #     """,
+        #     title="Customer VAT Status"
+        # )
         
         mapping = {
             "Final Consumer": 6,
@@ -113,10 +113,10 @@ def get_invoice_type(sales_invoice):
         invoice_type = mapping.get(vat_status, 1)
         
         # Debug log result
-        frappe.log_error(
-            message=f"Mapped invoice type: {invoice_type}",
-            title="Invoice Type Result"
-        )
+        # frappe.log_error(
+        #     message=f"Mapped invoice type: {invoice_type}",
+        #     title="Invoice Type Result"
+        # )
         
         return invoice_type
         
@@ -136,11 +136,6 @@ def get_customer_type(sales_invoice):
         int: AFIP invoice type code
     """
     try:
-        # Debug log
-        frappe.log_error(
-            message=f"Getting invoice type for invoice: {sales_invoice.name}",
-            title="Invoice Type Debug"
-        )
         
         # Get customer VAT status
         vat_status = frappe.get_value(
@@ -149,16 +144,7 @@ def get_customer_type(sales_invoice):
             "custom_vat_status"
         )
         
-        # Debug log customer details
-        frappe.log_error(
-            message=f"""
-            Customer VAT details:
-            - Customer: {sales_invoice.customer}
-            - VAT Status: {vat_status}
-            """,
-            title="Customer VAT Status"
-        )
-        
+
         mapping = {
             "Final Consumer": "Consumidor Final",
             "Exempt": "Exento",
@@ -170,11 +156,6 @@ def get_customer_type(sales_invoice):
         
         customer_type = mapping.get(vat_status, 1)
         
-        # Debug log result
-        frappe.log_error(
-            message=f"Mapped invoice type: {customer_type}",
-            title="Invoice Type Result"
-        )
         
         return customer_type
         
@@ -366,12 +347,6 @@ def generate_invoice(salesInvoice):
             }
         }
 
-        # Log request data for debugging
-        frappe.log_error(
-            message=f"AFIP Request Data:\nAuth: {auth}\nInvoice: {invoice}",
-            title="AFIP Debug - Request"
-        )
-
         try:
             # Add transport logging
             import logging.config
@@ -398,11 +373,11 @@ def generate_invoice(salesInvoice):
                 }
             })
 
-            # Pre-request validation
-            frappe.log_error(
-                message=f"Pre-request validation:\nToken length: {len(auth['Token'])}\nSign length: {len(auth['Sign'])}\nCUIT: {auth['Cuit']}",
-                title="AFIP Debug - Pre-request"
-            )
+            # # Pre-request validation
+            # frappe.log_error(
+            #     message=f"Pre-request validation:\nToken length: {len(auth['Token'])}\nSign length: {len(auth['Sign'])}\nCUIT: {auth['Cuit']}",
+            #     title="AFIP Debug - Pre-request"
+            # )
             
             response = client.service.FECAESolicitar(auth, invoice)
             
@@ -448,6 +423,21 @@ def generate_invoice(salesInvoice):
                         "custom_observations": obs_msg if (hasattr(det_resp, 'Observaciones') and det_resp.Observaciones) else ""
                     })
                     frappe.db.commit()
+                    
+                    log_electronic_invoice_error(
+                        doctype="Sales Invoice", 
+                        title=f"Electronic Invoice for {sales_invoice.name} Generated Successfully",
+                        status="Success",
+                        message = (
+                            f"'custom_cae': {cae}, "
+                            f"'custom_caefchvto': {cae_vto}, "
+                            f"'custom_qr_base64': {qr_base64}, "
+                            f"'custom_observations': "
+                            f"{obs_msg if (hasattr(det_resp, 'Observaciones') and det_resp.Observaciones) else ''}"
+                        )
+                    )
+
+
                     
                     frappe.msgprint(f"Invoice registered successfully with CAE: {cae}")
                     return {"success": True, "cae": cae, "cae_vto": cae_vto}
