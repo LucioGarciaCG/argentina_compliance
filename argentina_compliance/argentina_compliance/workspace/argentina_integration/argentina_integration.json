@@ -1,0 +1,95 @@
+{
+ "charts": [],
+ "content": "[{\"id\":\"42QdJtwgw7\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\">Argentina Integration</span>\",\"col\":12}},{\"id\":\"QSU4H7CgO3\",\"type\":\"number_card\",\"data\":{\"number_card_name\":\"Pending E-invoice\",\"col\":4}},{\"id\":\"R0vwqIRMLg\",\"type\":\"number_card\",\"data\":{\"number_card_name\":\"E-invoice\",\"col\":4}},{\"id\":\"dfWx6nPfhP\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"WFRJh1fl-P\",\"type\":\"card\",\"data\":{\"card_name\":\"Invoice\",\"col\":4}},{\"id\":\"pfWmGhgzlf\",\"type\":\"card\",\"data\":{\"card_name\":\"Logs\",\"col\":4}},{\"id\":\"hbKZu-4qh4\",\"type\":\"card\",\"data\":{\"card_name\":\"Settings\",\"col\":4}}]",
+ "creation": "2025-10-01 09:52:57.149039",
+ "custom_blocks": [],
+ "docstatus": 0,
+ "doctype": "Workspace",
+ "for_user": "",
+ "hide_custom": 0,
+ "idx": 0,
+ "indicator_color": "green",
+ "is_hidden": 0,
+ "label": "Argentina Integration",
+ "links": [
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Invoice",
+   "link_count": 1,
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Sales Invoice",
+   "link_count": 0,
+   "link_to": "Sales Invoice",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Logs",
+   "link_count": 1,
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Electronic Invoice Log",
+   "link_count": 0,
+   "link_to": "Electronic Invoice Log",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Settings",
+   "link_count": 1,
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "AFIP Setting",
+   "link_count": 0,
+   "link_to": "AFIP Setting",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  }
+ ],
+ "modified": "2025-10-01 10:13:32.511148",
+ "modified_by": "Administrator",
+ "module": "Argentina Compliance",
+ "name": "Argentina Integration",
+ "number_cards": [
+  {
+   "label": "Pending E-invoice",
+   "number_card_name": "Pending E-invoice"
+  },
+  {
+   "label": "E-invoice",
+   "number_card_name": "E-invoice"
+  }
+ ],
+ "owner": "Administrator",
+ "parent_page": "",
+ "public": 1,
+ "quick_lists": [],
+ "roles": [],
+ "sequence_id": 35.0,
+ "shortcuts": [],
+ "title": "Argentina Integration"
+}
