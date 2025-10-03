@@ -3,7 +3,7 @@ app_title = "Argentina Compliance"
 app_publisher = "Finbyz Tech Pvt Ltd"
 app_description = "Argentina Compliance "
 app_email = "info@finbyz.tech"
-app_license = "mit"
+app_license = "GPL-3.0"
 
 # Apps
 # ------------------
