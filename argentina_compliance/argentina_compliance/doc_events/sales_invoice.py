@@ -24,17 +24,18 @@ def extract_invoice_number(invoice_name, invoice_type):
         # )
         
         # Split the invoice name and get the last part
+        
         parts = invoice_name.split('-')
         if len(parts) < 2:
             frappe.throw(f"Invalid invoice name format: {invoice_name}")
         
         # Get the last numeric part and remove leading zeros
-        numeric_part = parts[-1].lstrip('0')
-        if not numeric_part:
-            numeric_part = "0"  # Handle case where number is all zeros
-            
+        numeric_part = parts[-1].lstrip('0') or "0"
+        
         if not numeric_part.isdigit():
             frappe.throw(f"Could not extract numeric sequence from invoice name: {invoice_name}")
+
+        parsed_number = int(numeric_part)
         
         # Get the number from AFIP to verify
         pos_number = 1  # Default POS number, adjust if needed
@@ -48,6 +49,8 @@ def extract_invoice_number(invoice_name, invoice_type):
         }
         
         last_afip_number = get_last_authorized_invoice(client, auth, pos_number, invoice_type)
+        if last_afip_number == 0:
+            return parsed_number
         next_afip_number = last_afip_number + 1
         
         # Debug log
@@ -259,6 +262,11 @@ def get_last_authorized_invoice(client, auth, pos_number, invoice_type):
 
 @frappe.whitelist()
 def generate_invoice(salesInvoice):
+    if not frappe.has_permission("Sales Invoice", "create"):
+        frappe.throw("You do not have permission to create or update Sales Invoices.")
+    
+    if not frappe.has_permission("AFIP Setting", "read"):
+        frappe.throw("You do not have permission to access AFIP Settings.")
     try:
         # Get AFIP settings
         afip_details = frappe.get_doc("AFIP Setting")
