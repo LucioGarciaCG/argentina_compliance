@@ -607,11 +607,17 @@ def generate_qr_code(invoice, cae, cae_vto):
 
 @frappe.whitelist()
 def cancel_invoice(salesInvoice):
-    if not frappe.has_permission("Sales Invoice", "create"):
-        frappe.throw("You do not have permission to create or update Sales Invoices.")
-    
+    # Get Sales Invoice doc first
+    sales_invoice = frappe.get_doc("Sales Invoice", salesInvoice)
+
+    # Check cancel permission on this doc
+    if not sales_invoice.has_permission("cancel"):
+        frappe.throw("You do not have permission to cancel this Sales Invoice.")
+
+    # Check AFIP Setting permission
     if not frappe.has_permission("AFIP Setting", "read"):
         frappe.throw("You do not have permission to access AFIP Settings.")
+        
     try:
         # Get AFIP settings
         afip_details = frappe.get_doc("AFIP Setting")
