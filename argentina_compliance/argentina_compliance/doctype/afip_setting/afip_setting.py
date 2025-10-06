@@ -4,23 +4,17 @@
 import frappe
 import traceback
 from frappe.model.document import Document
+from argentina_compliance.argentina_compliance.doc_events.afip_token import (
+    get_afip_token,
+)
 
 
 class AFIPSetting(Document):
-	pass
-
-
-def log_electronic_invoice_error(doctype=None, module=None, title=None, message=None, exception=None, status=None):
-    try:
-        frappe.get_doc({
-            "doctype": "Electronic Invoice Log",
-            "reference_doctype": doctype,
-            "reference_module": module,
-            "status": status,
-            "title": title,
-            "error": str(exception) if exception else "",
-            "path": traceback.format_exc() if exception else "",
-            "message": message
-        }).insert(ignore_permissions=True)
-    except Exception as log_error:
-        frappe.log_error(f"Failed to log to Electronic Invoice Log: {str(log_error)}")
+    def before_save(self):
+        try:
+            get_afip_token()
+        except Exception as e:
+            frappe.log_error(
+                message=f"Error in updating E-invoice certificate or key : {str(e)}",
+                title="AFIP Setting Update Fail",
+            )
