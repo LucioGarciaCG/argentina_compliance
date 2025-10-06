@@ -57,7 +57,7 @@ Before proceeding, ensure that the following are completed:
 
 #### Step 1: Create AFIP Settings
 
-1.  Go to: `Awesome Bar (Search)  > AFIP Settings`
+1.  Go to: `Accounting > Argentina Integration > AFIP Settings`
 2.  Fill in the following details:
     - **CUIT Number**
     - **Use SandBox Environment**: `Testing` or `Production`
