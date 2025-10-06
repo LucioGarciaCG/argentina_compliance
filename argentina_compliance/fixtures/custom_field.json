@@ -437,7 +437,7 @@
   "name": "Company-custom_vat_status",
   "no_copy": 0,
   "non_negative": 0,
-  "options": "Final Consumer\nExempt\nMonotributo Manager\nRegistered Responsible \nUncategorized",
+  "options": "Final Consumer\nExempt\nMonotributo Manager\nRegistered Responsible\nUncategorized",
   "permlevel": 0,
   "placeholder": null,
   "precision": "",

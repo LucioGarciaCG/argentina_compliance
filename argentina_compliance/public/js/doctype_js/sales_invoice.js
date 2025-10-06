@@ -1,6 +1,6 @@
 frappe.ui.form.on('Sales Invoice', {
     refresh: function(frm) {
-        if (!frm.is_new() && frm.doc.docstatus == 1 ) {  // Added check for docstatus
+        if (!frm.is_new() && frm.doc.docstatus == 1 && !frm.doc.custom_cae) {  // Added check for docstatus
             const buttonLabel = frm.doc.is_return ? __('Generate Credit Note') : __('Generate E-Invoice');
             
             frm.add_custom_button(__(buttonLabel), function() {
@@ -32,7 +32,7 @@ frappe.ui.form.on('Sales Invoice', {
                                 frappe.msgprint(r.message);
                             }
                             // Refresh the form to show updated values
-                            frm.refresh();
+                            frm.reload_doc();
                         }
                     },
                     error: function(r) {
@@ -44,7 +44,7 @@ frappe.ui.form.on('Sales Invoice', {
                         });
                     }
                 });
-            frm.doc.refresh();
+            frm.reload_doc();
             });
         }
     }

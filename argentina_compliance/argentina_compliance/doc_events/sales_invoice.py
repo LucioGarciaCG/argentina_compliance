@@ -453,6 +453,7 @@ def generate_invoice(salesInvoice):
                         doctype="Sales Invoice",
                         title=f"Electronic Invoice for {sales_invoice.name} Generated Successfully",
                         status="Success",
+                        source=sales_invoice.name,
                         message=(
                             f"'custom_cae': {cae}, "
                             f"'custom_caefchvto': {cae_vto}, "
@@ -497,6 +498,7 @@ def generate_invoice(salesInvoice):
             doctype="Sales Invoice",
             title=f"Failed to Generate Electronic Invoice for {sales_invoice.name}",
             status="Failed",
+            source=sales_invoice.name,
             message=error_msg,
         )
 

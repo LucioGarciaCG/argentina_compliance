@@ -17,7 +17,7 @@ def log_electronic_invoice_response(
     message=None,
     exception=None,
     status=None,
-    path=None,
+    source=None,
 ):
     try:
         frappe.get_doc(
@@ -26,10 +26,9 @@ def log_electronic_invoice_response(
                 "reference_doctype": doctype,
                 "reference_module": module,
                 "status": status,
-                "path": path,
+                "source": source,
                 "title": title,
                 "error": str(exception) if exception else "",
-                "path": traceback.format_exc() if exception else "",
                 "message": message,
             }
         ).insert(ignore_permissions=True)

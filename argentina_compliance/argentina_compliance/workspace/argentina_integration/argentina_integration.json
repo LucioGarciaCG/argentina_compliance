@@ -70,7 +70,7 @@
    "type": "Link"
   }
  ],
- "modified": "2025-10-01 09:09:14.123225",
+ "modified": "2025-10-06 08:36:00.472978",
  "modified_by": "Administrator",
  "module": "Argentina Compliance",
  "name": "Argentina Integration",
@@ -88,7 +88,14 @@
  "parent_page": "Accounting",
  "public": 1,
  "quick_lists": [],
- "roles": [],
+ "roles": [
+  {
+   "role": "Accounts Manager"
+  },
+  {
+   "role": "Accounts User"
+  }
+ ],
  "sequence_id": 4.0,
  "shortcuts": [],
  "title": "Argentina Integration"
