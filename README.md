@@ -62,7 +62,12 @@ Before proceeding, ensure that the following are completed:
     - **CUIT Number**
     - **Use SandBox Environment**: `Testing` or `Production`
     - **Certificate File & Private Key** : Upload
+![Upload Files](https://finbyz.tech/files/Upload Files.png)
+
 3.  Click **Save** and it will **Validate Connection** to ensure the credentials are correct.
+
+![Save and Validate](https://finbyz.tech/files/Save and Validate.png)
+
 
 #### Step 2: Set Company VAT and Fiscal Information
 
