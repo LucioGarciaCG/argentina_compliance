@@ -17,6 +17,61 @@ ERPNext is a versatile open-source ERP system that allows businesses to manage v
 
 ---
 
+## Setup
+
+Follow these steps to set up the **Argentina Compliance** doctype and enable electronic-invoicing features in ERPNext:
+
+### 1. Prerequisites
+
+Before proceeding, ensure that the following are completed:
+- ERPNext version 14 or later is installed and running.
+- You have **System Manager** or **Administrator** role.
+- Your company’s **Tax ID (CUIT)** and **AFIP Certificate & Key** are available.
+- Your system timezone is configured for **Argentina/Buenos_Aires**.
+
+---
+
+### 2. Installation
+
+1.  Navigate to your ERPNext bench directory:
+    ```bash
+    cd ~/frappe-bench
+    ```
+
+2.  Get the app from the repository:
+    ```bash
+    bench get-app argentina_compliance [https://github.com/finbyz/argentina_compliance.git](https://github.com/finbyz/argentina_compliance.git)
+    ```
+
+3.  Install the app on your site:
+    ```bash
+    bench --site yoursite.domain install-app argentina_compliance
+    ```
+
+4.  Restart the bench:
+    ```bash
+    bench restart
+    ```
+
+### 3. Initial Configuration
+
+#### Step 1: Create AFIP Settings
+
+1.  Go to: `Awesome Bar (Search)  > AFIP Settings`
+2.  Fill in the following details:
+    - **CUIT Number**
+    - **Use SandBox Environment**: `Testing` or `Production`
+    - **Certificate File & Private Key** : Upload
+3.  Click **Save** and it will **Validate Connection** to ensure the credentials are correct.
+
+#### Step 2: Set Company VAT and Fiscal Information
+
+1.  Go to: `Accounting > Company`
+2.  Under the **Argentina Compliance** section, configure the following:
+    - Enter your **VAT Category** (e.g., `Responsable Inscripto` / `Monotributista`)
+    - Confirm your **Tax ID (CUIT)**
+
+---
 ## Custom Fields and Compliance
 
 ### Custom Fields to Support Legal Compliance
