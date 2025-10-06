@@ -62,11 +62,11 @@ Before proceeding, ensure that the following are completed:
     - **CUIT Number**
     - **Use SandBox Environment**: `Testing` or `Production`
     - **Certificate File & Private Key** : Upload
-![Upload Files](https://finbyz.tech/files/Upload Files.png)
+![Upload Image](https://finbyz.tech/files/Upload%20Files.png)
 
 3.  Click **Save** and it will **Validate Connection** to ensure the credentials are correct.
 
-![Save and Validate](https://finbyz.tech/files/Save and Validate.png)
+![Upload Image](https://finbyz.tech/files/Save%20and%20Validate.png)
 
 
 #### Step 2: Set Company VAT and Fiscal Information
@@ -75,6 +75,7 @@ Before proceeding, ensure that the following are completed:
 2.  Under the **Argentina Compliance** section, configure the following:
     - Enter your **VAT Category** (e.g., `Responsable Inscripto` / `Monotributista`)
     - Confirm your **Tax ID (CUIT)**
+![Upload Image](https://finbyz.tech/files/Company%20Setting.png)
 
 ---
 ## Custom Fields and Compliance
