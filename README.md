@@ -62,11 +62,11 @@ Before proceeding, ensure that the following are completed:
     - **CUIT Number**
     - **Use SandBox Environment**: `Testing` or `Production`
     - **Certificate File & Private Key** : Upload
-![Upload Image](https://finbyz.tech/files/Upload%20Files.png)
+![Upload Image](https://erp.finbyz.tech/files/Upload%20Files.png)
 
 3.  Click **Save** and it will **Validate Connection** to ensure the credentials are correct.
 
-![Upload Image](https://finbyz.tech/files/Save%20and%20Validate.png)
+![Upload Image](https://erp.finbyz.tech/files/Save%20and%20Validate.png)
 
 
 #### Step 2: Set Company VAT and Fiscal Information
@@ -75,7 +75,7 @@ Before proceeding, ensure that the following are completed:
 2.  Under the **Argentina Compliance** section, configure the following:
     - Enter your **VAT Category** (e.g., `Responsable Inscripto` / `Monotributista`)
     - Confirm your **Tax ID (CUIT)**
-![Upload Image](https://finbyz.tech/files/Company%20Setting.png)
+![Upload Image](https://erp.finbyz.tech/files/Company%20Setting.png)
 
 ---
 ## Custom Fields and Compliance
@@ -117,28 +117,28 @@ A streamlined process flow integrates electronic-invoicing into the sales invoic
 ### Step 1: Create and Save Sales Invoice
 Enter customer, item, and payment details, ensuring accuracy before saving as a draft.  
 
-![Create and Save Sales Invoice](https://finbyz.tech/files/Create%20and%20Save%20SI.png)
+![Create and Save Sales Invoice](https://erp.finbyz.tech/files/Create%20and%20Save%20SI.png)
 
 ### Step 2: Final Edits and Save
 Make necessary corrections and updates, then save the invoice for validation.  
 
-![Final Edits and Save](https://finbyz.tech/files/Final%20Edits%20and%20Save.png)
+![Final Edits and Save](https://erp.finbyz.tech/files/Final%20Edits%20and%20Save.png)
 
 ### Step 3: Generate Electronic-Invoice
 Communicate with the tax authority for validation and authorization. Retrieve the CAE (Authorization Code) and expiration date.  
 
-![Generate Electronic-Invoice](https://finbyz.tech/files/Generate%20E-Invoice.png)  
-![Generate Electronic-Invoice](https://finbyz.tech/files/Generate%20E-Invoice-1.png)
+![Generate Electronic-Invoice](https://erp.finbyz.tech/files/Generate%20E-Invoice.png)  
+![Generate Electronic-Invoice](https://erp.finbyz.tech/files/Generate%20E-Invoice-1.png)
 
 ### Step 4: Submit Sales Invoice
 Finalize and submit the invoice after successful Electronic-Invoice generation.  
 
-![Submit Sales Invoice](https://finbyz.tech/files/Submit%20Sales%20Invoice.png)
+![Submit Sales Invoice](https://erp.finbyz.tech/files/Submit%20Sales%20Invoice.png)
 
 ### Step 5: QR Code
 Embed a QR code on the invoice, enabling instant verification by tax authorities and customers.  
 
-![QR Code](https://finbyz.tech/files/QR%20Code.png)
+![QR Code](https://erp.finbyz.tech/files/QR%20Code.png)
 
 ---
 
