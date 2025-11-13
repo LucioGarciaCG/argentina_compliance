@@ -5,6 +5,12 @@ app_description = "Argentina Compliance "
 app_email = "info@finbyz.tech"
 app_license = "GPL-3.0"
 
+
+
+# hooks.py
+
+after_install = "argentina_compliance.argentina_compliance.install.after_install"
+before_uninstall = "argentina_compliance.argentina_compliance.uninstall.before_uninstall"
 # Apps
 # ------------------
 
@@ -84,7 +90,7 @@ doctype_js = {"Sales Invoice" : "public/js/doctype_js/sales_invoice.js"}
 # ------------
 
 # before_install = "argentina_compliance.install.before_install"
-# after_install = "argentina_compliance.install.after_install"
+# after_install = "argentina_compliance.install.after_instdall"
 
 # Uninstallation
 # ------------
@@ -145,6 +151,13 @@ doctype_js = {"Sales Invoice" : "public/js/doctype_js/sales_invoice.js"}
 	# 	"on_trash": "method"
 	# }  
 # }
+doc_events = {
+    "Sales Invoice": {
+        "validate": "argentina_compliance.argentina_compliance.doc_events.sales_invoice.validate_tax_id",
+        "on_submit": "argentina_compliance.argentina_compliance.doc_events.sales_invoice.validate_tax_id_on_submit",
+        
+    }
+}
 
 # Scheduled Tasks
 # ---------------

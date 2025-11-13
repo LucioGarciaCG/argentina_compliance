@@ -1,6 +1,7 @@
 import frappe
 import zeep
 from datetime import datetime
+from frappe import _
 import base64
 import json
 from zeep.exceptions import Fault
@@ -41,9 +42,18 @@ def extract_invoice_number(invoice_name, invoice_type):
             )
 
         parsed_number = int(numeric_part)
+        sales_invoice = frappe.get_doc("Sales Invoice", invoice_name)
+        afip_details = frappe.get_single("AFIP Setting")
 
+        # 🔹 Get POS number dynamically based on Sales Invoice naming series
+        pos_number = None
+        for series in afip_details.sales_invoice_naming_series:
+            if series.naming_series == sales_invoice.naming_series:
+                pos_number = int(series.pos_number)
+                break
+        # frappe.throw(str(pos_number))
         # Get the number from AFIP to verify
-        pos_number = 1  # Default POS number, adjust if needed
+        # pos_number = 1  # Default POS number, adjust if needed
         afip_details = frappe.get_doc("AFIP Setting")
         client = get_afip_client(afip_details)
 
@@ -293,9 +303,22 @@ def generate_invoice(salesInvoice):
         # Get sales invoice details
         sales_invoice = frappe.get_doc("Sales Invoice", salesInvoice)
         customer = frappe.get_doc("Customer", sales_invoice.customer)
+        
+        if not customer.tax_id:
+            frappe.throw(
+                _("Customer '{0}' does not have a Tax ID. Please update the Tax ID before generating the invoice.").format(
+                    customer.name
+                )
+            )
 
         # Get POS number and invoice type
-        pos_number = int(sales_invoice.pos_profile) if sales_invoice.pos_profile else 1
+        pos_number = None
+        for series in afip_details.sales_invoice_naming_series:
+            if series.naming_series == sales_invoice.naming_series:
+                pos_number = int(series.pos_number)
+                break
+            
+        # frappe.throw(str(pos_number))
         invoice_type = get_invoice_type(sales_invoice)
 
         # Get the numeric sequence from invoice name
@@ -308,11 +331,11 @@ def generate_invoice(salesInvoice):
         expected_number = last_invoice + 1
 
         # Validate invoice number sequence
-        if current_number != expected_number:
-            frappe.throw(
-                f"Invalid invoice number sequence. Expected {expected_number}, got {current_number}. "
-                "Please check the last authorized invoice in AFIP."
-            )
+        # if current_number != expected_number:
+        #     frappe.throw(
+        #         f"Invalid invoice number sequence. Expected {expected_number}, got {current_number}. "
+        #         "Please check the last authorized invoice in AFIP."
+        #     )
 
         # Calculate VAT
         vat_tax = 0
@@ -465,6 +488,14 @@ def generate_invoice(salesInvoice):
 
                     frappe.msgprint(f"Invoice registered successfully with CAE: {cae}")
                     return {"success": True, "cae": cae, "cae_vto": cae_vto}
+                if det_resp.Resultado == "R":
+                    obs_msg = ""
+                    if hasattr(det_resp, "Observaciones") and det_resp.Observaciones:
+                        obs_msg = "; ".join(
+                            [f"{obs.Code}: {obs.Msg}" for obs in det_resp.Observaciones.Obs]
+                        )
+                    frappe.throw(f"AFIP Validation Error: R - {obs_msg or 'Rejected by AFIP, no details provided.'}")
+
                 else:
                     frappe.throw(f"AFIP Validation Error: {det_resp.Resultado}")
             else:
@@ -846,3 +877,18 @@ def cancel_invoice(salesInvoice):
             title="Credit Note - Fatal Error",
         )
         frappe.throw(f"Failed to generate credit note: {str(e)}")
+
+
+def validate_tax_id_on_submit(doc, method):
+    if doc.customer:
+        tax_id = frappe.db.get_value("Customer", doc.customer, "tax_id")
+        if not tax_id:
+            frappe.throw(_("Customer '{0}' does not have a Tax ID. Please update it in the Customer master.").format(doc.customer))
+
+
+
+def validate_tax_id(doc, method):
+    if doc.customer:
+        tax_id = frappe.db.get_value("Customer", doc.customer, "tax_id")
+        if not tax_id:
+            frappe.msgprint(_("Tax ID is compulsory for Customer '{0}'. Please update it before creating the Sales Invoice.").format(doc.customer))

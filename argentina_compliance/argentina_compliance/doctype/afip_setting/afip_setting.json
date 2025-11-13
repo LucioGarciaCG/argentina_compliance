@@ -11,7 +11,11 @@
   "use_sandbox_environment",
   "column_break_phbr",
   "certificate",
-  "private_key"
+  "private_key",
+  "check_afip_invoice_number_consistency",
+  "section_break_aexw",
+  "sales_invoice_naming_series",
+  "credentials_tab"
  ],
  "fields": [
   {
@@ -51,13 +55,34 @@
    "fieldname": "private_key",
    "fieldtype": "Attach",
    "label": "Private key"
+  },
+  {
+   "default": "0",
+   "fieldname": "check_afip_invoice_number_consistency",
+   "fieldtype": "Check",
+   "label": "Check AFIP Invoice Number Consistency"
+  },
+  {
+   "fieldname": "section_break_aexw",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "sales_invoice_naming_series",
+   "fieldtype": "Table",
+   "label": "Sales Invoice Naming Series",
+   "options": "Sales Invoice Naming Series"
+  },
+  {
+   "fieldname": "credentials_tab",
+   "fieldtype": "Tab Break",
+   "label": "Credentials"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "issingle": 1,
  "links": [],
- "modified": "2025-10-06 08:43:20.005990",
+ "modified": "2025-11-13 09:17:15.850030",
  "modified_by": "Administrator",
  "module": "Argentina Compliance",
  "name": "AFIP Setting",
