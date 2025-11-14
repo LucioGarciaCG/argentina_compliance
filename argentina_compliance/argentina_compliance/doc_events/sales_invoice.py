@@ -227,6 +227,7 @@ def validate_invoice_sequence(sales_invoice):
 
         # Get what should be the next number from AFIP
         expected_number = get_next_number(invoice_type, pos_number)
+        
 
         if current_number != expected_number:
             frappe.throw(
@@ -329,13 +330,14 @@ def generate_invoice(salesInvoice):
             client, auth, pos_number, invoice_type
         )
         expected_number = last_invoice + 1
-
-        # Validate invoice number sequence
-        # if current_number != expected_number:
-        #     frappe.throw(
-        #         f"Invalid invoice number sequence. Expected {expected_number}, got {current_number}. "
-        #         "Please check the last authorized invoice in AFIP."
-        #     )
+        
+        afip_details = frappe.get_single("AFIP Setting")
+        if afip_details.check_afip_invoice_number_consistency:
+            if current_number != expected_number:
+                frappe.throw(
+                    f"Invalid invoice number sequence. Expected {expected_number}, got {current_number}. "
+                    "Please check the last authorized invoice in AFIP."
+                )
 
         # Calculate VAT
         vat_tax = 0
@@ -386,6 +388,16 @@ def generate_invoice(salesInvoice):
                 ]
             },
         }
+        
+        log_electronic_invoice_response(
+            doctype="Sales Invoice",
+            title=f"Electronic Invoice for {sales_invoice.name} Generated Successfully",
+            status="Testing",
+            source=sales_invoice.name,
+            message=(
+                f"{invoice}"
+            ),
+        )
 
         try:
             # Add transport logging
