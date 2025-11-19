@@ -5,76 +5,77 @@ import subprocess
 import requests
 from zeep import Client
 import os
+from dateutil import parser
 
-
-def check_token_validity():
+def check_token_validity(row):
     """Check if the existing token is still valid"""
     try:
-        afip_settings = frappe.get_doc("AFIP Setting")
-        if not afip_settings.token or not afip_settings.sign:
+        # afip_settings = frappe.get_doc("AFIP Setting")
+        if not row.token or not row.sign:
             return False
-
+        
         # Get the expiration time from the token
-        token_bytes = afip_settings.token.encode("utf-8")
+        token_bytes = row.token.encode('utf-8')
         token_xml = ET.fromstring(token_bytes)
-        expiration_time = token_xml.find(".//exp_time")
-
+        expiration_time = token_xml.find('.//exp_time')
+        
         if expiration_time is not None:
             expiration_time = datetime.datetime.fromtimestamp(int(expiration_time.text))
+            
             current_time = datetime.datetime.now()
-
+            
             # Return True if token is still valid (considering a small buffer)
             return current_time < (expiration_time - datetime.timedelta(minutes=10))
-
+            
         return False
     except Exception:
         return False
 
 
-def get_afip_token():
+
+#Old and Correct Code
+def get_afip_token(row):
     try:
-        # First check if we have a valid token
-        if check_token_validity():
-            frappe.msgprint("Using existing valid AFIP token")
-            afip_settings = frappe.get_doc("AFIP Setting")
-            return {
-                "success": True,
-                "token": afip_settings.token,
-                "sign": afip_settings.sign,
-            }
+        settings = frappe.get_doc("AFIP Setting")
+        
+        # Find the child row
+        # row = next((r for r in settings.credentials if r.name == row_name), None)
+        if not row:
+            frappe.throw("Credentials row not found")
+        
+        # 1) USE VALID TOKEN
+        if check_token_validity(row):
+            frappe.msgprint(f"Using existing valid token for row {row}")
+            return {"success": True, "token": row.token, "sign": row.sign,"row": row.as_dict()   }
 
-        # If no valid token exists, proceed with generating a new one
-        site_path = frappe.get_site_path()
-
+        # 2) GENERATE NEW TOKEN
         # Set the service ID (replace with your actual service ID)
         servicio_id = "wsfe"
+        
+        if not row.certificate:
+            frappe.throw("Certificate field is empty in this credential row")
+        if not row.private_key:
+            frappe.throw("Private Key field is empty in this credential row")
 
-        # Set certificate and private key paths
-        afip = frappe.get_doc("AFIP Setting")
+                
+        certificado = row.certificate  # e.g. '/private/files/finbyzCerficate.crt'
+        clave_privada = row.private_key  # e.g. '/private/files/finbyz_key.key'
 
-        # Get site path
-        site_path = frappe.get_site_path()
+        # Convert to absolute paths
+        certificado_path = frappe.get_site_path() + certificado
+        clave_privada_path = frappe.get_site_path() + clave_privada
+                
+       
+        if not os.path.exists(certificado_path):
+            frappe.throw(f"Certificate not found: {certificado_path}")
+        if not os.path.exists(clave_privada_path):
+            frappe.throw(f"Private key not found: {clave_privada_path}")
 
-        # Extract file URLs from the File fields
-        certificate_url = afip.certificate  # e.g. '/private/files/your_cert.crt'
-        private_key_url = afip.private_key  # e.g. '/private/files/your_key.key'
-
-        # Join with site path to get absolute file paths
-        certificado = os.path.join(site_path, certificate_url.lstrip("/"))
-        clave_privada = os.path.join(site_path, private_key_url.lstrip("/"))
-
-        # Verify files exist
-        if not os.path.exists(certificado):
-            frappe.throw(f"Certificate file not found at {certificado}")
-        if not os.path.exists(clave_privada):
-            frappe.throw(f"Private key file not found at {clave_privada}")
-
-        # Set WSDL URL
         wsaa_wsdl = "https://wsaahomo.afip.gov.ar/ws/services/LoginCms?WSDL"
-
-        # Create XML access ticket
+        servicio_id = "wsfe"
         dt_now = datetime.datetime.utcnow()
 
+        # XML creation
         # Create XML structure
         root = ET.Element("loginTicketRequest")
         header = ET.SubElement(root, "header")
@@ -83,11 +84,8 @@ def get_afip_token():
         expiration_time = ET.SubElement(header, "expirationTime")
         service = ET.SubElement(root, "service")
 
-        # Set times using proper UTC format
         generation_time.text = (dt_now).strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z"
-        expiration_time.text = (dt_now + datetime.timedelta(minutes=10)).strftime(
-            "%Y-%m-%dT%H:%M:%S.%f"
-        )[:-3] + "Z"
+        expiration_time.text = (dt_now + datetime.timedelta(minutes=10)).strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z"
         unique_id.text = dt_now.strftime("%y%m%d%H%M")
         service.text = servicio_id
 
@@ -95,83 +93,84 @@ def get_afip_token():
         out_xml = f"{seq_nr}-LoginTicketRequest.xml"
         out_cms_der = f"{seq_nr}-LoginTicketRequest.xml.cms-DER"
         out_cms_der_b64 = f"{seq_nr}-LoginTicketRequest.xml.cms-DER-b64"
-
+  
+        # Sign CMS
         try:
             # Write XML to file
-            xml_content = '<?xml version="1.0" encoding="UTF-8"?>\n' + ET.tostring(
-                root, encoding="unicode"
-            )
-            with open(out_xml, "w", encoding="utf-8") as f:
+            xml_content = '<?xml version="1.0" encoding="UTF-8"?>\n' + ET.tostring(root, encoding='unicode')
+            with open(out_xml, 'w', encoding='utf-8') as f:
                 f.write(xml_content)
-
+            
             # Sign CMS
-            subprocess.run(
-                [
-                    "openssl",
-                    "smime",
-                    "-sign",
-                    "-in",
-                    out_xml,
-                    "-signer",
-                    certificado,
-                    "-inkey",
-                    clave_privada,
-                    "-nodetach",
-                    "-outform",
-                    "der",
-                    "-out",
-                    out_cms_der,
-                ],
-                check=True,
-            )
-
+            subprocess.run([
+                'openssl', 'smime', '-sign',
+                '-in', out_xml,
+                '-signer', certificado_path,
+                '-inkey', clave_privada_path,
+                '-nodetach',
+                '-outform', 'der',
+                '-out', out_cms_der
+            ], check=True)
+            
             # Encode in BASE64
-            subprocess.run(
-                [
-                    "openssl",
-                    "base64",
-                    "-in",
-                    out_cms_der,
-                    "-e",
-                    "-out",
-                    out_cms_der_b64,
-                ],
-                check=True,
-            )
-
-            with open(out_cms_der_b64, "r") as f:
+            subprocess.run([
+                'openssl', 'base64',
+                '-in', out_cms_der,
+                '-e',
+                '-out', out_cms_der_b64
+            ], check=True)
+            
+            with open(out_cms_der_b64, 'r') as f:
                 cms = f.read()
-
+            
             # Call WSAA
             client = Client(wsaa_wsdl)
             wsaa_response = client.service.loginCms(cms)
-
             # Parse response and update settings
             response_root = ET.fromstring(wsaa_response)
-            token = response_root.find(".//credentials/token").text
-            sign = response_root.find(".//credentials/sign").text
+            token = response_root.find('.//credentials/token').text
+            sign = response_root.find('.//credentials/sign').text
+            exp = response_root.find('.//header/expirationTime').text
+            expiration_time = parser.isoparse(exp)
+            expiration_time = expiration_time.astimezone(datetime.timezone.utc).replace(tzinfo=None)
+            
+            # SAVE IN ROW ONLY
+            if token and sign and expiration_time:
+                row.token = token
+                row.sign = sign
+                row.expiration_time = expiration_time
+                settings.save()
 
-            afip_settings = frappe.get_doc("AFIP Setting")
-            afip_settings.token = token
-            afip_settings.sign = sign
-            afip_settings.save()
-
-            frappe.db.commit()
-
-            frappe.msgprint("AFIP token and sign updated successfully")
-
-            return {"success": True, "token": token, "sign": sign}
+                frappe.msgprint(f"AFIP token and sign updated successfully")
+                return {"success": True, "token": token, "sign": sign}
+            else:
+                frappe.error_log(f"Token Renew Failed: " )
 
         except Exception as e:
-            frappe.log_error(f"AFIP Token Generation Error: {str(e)}")
-            frappe.throw(f"Error generating AFIP token: {str(e)}")
-
+            frappe.log_error(
+                f"AFIP Token Generation Error: {str(e)}")
+            frappe.msgprint(
+              
+                f"Error in AFIP token generation: {str(e)}\n\n"
+                f"Stored Expiration: {row.expiration_time or 'Not Set'}"
+            )
         finally:
-            # Cleanup temporary files
-            for file in [out_xml, out_cms_der, out_cms_der_b64]:
-                if os.path.exists(file):
-                    os.remove(file)
-
+                # Cleanup temporary files
+                for file in [out_xml, out_cms_der, out_cms_der_b64]:
+                    if os.path.exists(file):
+                        os.remove(file)
+                        
     except Exception as e:
+
         frappe.log_error(f"AFIP Token Generation Error: {str(e)}")
         frappe.throw(f"Error in AFIP token generation: {str(e)}")
+        return {"success": False, "message": str(e)}
+    
+
+
+@frappe.whitelist()
+def renew_all_afip_tokens():
+    settings = frappe.get_doc("AFIP Setting")
+    for row in settings.credentials:
+        get_afip_token(row)
+   

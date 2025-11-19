@@ -50,7 +50,10 @@ app_include_js = ["https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.
 # page_js = {"page" : "public/js/file.js"}
 
 # include js in doctype views
-doctype_js = {"Sales Invoice" : "public/js/doctype_js/sales_invoice.js"}
+doctype_js = {
+    "Sales Invoice" : "public/js/doctype_js/sales_invoice.js",
+    "AFIP Setting": "public/js/doctype_js/afip_setting.js"
+}
 # doctype_list_js = {"doctype" : "public/js/doctype_list.js"}
 # doctype_tree_js = {"doctype" : "public/js/doctype_tree.js"}
 # doctype_calendar_js = {"doctype" : "public/js/doctype_calendar.js"}
@@ -179,8 +182,8 @@ scheduler_events = {
 # 		"argentina_compliance.tasks.monthly"
 # 	],
 		"cron": {
-			"0 */12 * * *": [
-				"argentina_compliance.argentina_compliance.doc_events.afip_token.get_afip_token"
+			"1 * * * *": [
+				"argentina_compliance.argentina_compliance.doc_events.afip_token.renew_all_afip_tokens"
 			]
 		}
 }

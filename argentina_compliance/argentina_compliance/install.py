@@ -7,7 +7,7 @@ def after_install():
     companies = frappe.get_all("Company", pluck="name")
 
     for company in companies:
-        print(f"\n🚀 Creating tax templates for company: {company}")
+        print(f"\n Creating tax templates for company: {company}")
         result = create_tax_templates(company)
         print(f" Completed for {company}: {result}\n")
         frappe.db.commit()  # Commit after each company
@@ -20,7 +20,7 @@ def create_tax_templates(company):
 
     # Skip if already exists
     if frappe.db.exists("Sales Taxes and Charges Template", {"company": company, "title": "Standard Sales VAT%"}):
-        print(f"⚠️ Sales VAT Template already exists for {company}")
+        print(f" Sales VAT Template already exists for {company}")
     else:
         sales_template = {
             "title": "Standard Sales VAT%",
@@ -53,7 +53,7 @@ def create_tax_templates(company):
 
     # Purchase VAT 21%
     if frappe.db.exists("Purchase Taxes and Charges Template", {"company": company, "title": "Standard Purchase VAT%"}):
-        print(f"⚠️ Purchase VAT Template already exists for {company}")
+        print(f"Purchase VAT Template already exists for {company}")
     else:
         purchase_template = {
             "title": "Standard Purchase VAT%",

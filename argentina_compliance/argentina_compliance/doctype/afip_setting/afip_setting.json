@@ -5,63 +5,12 @@
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
-  "cuit",
-  "token",
-  "sign",
-  "use_sandbox_environment",
-  "column_break_phbr",
-  "certificate",
-  "private_key",
-  "check_afip_invoice_number_consistency",
   "section_break_aexw",
   "sales_invoice_naming_series",
-  "credentials_tab"
+  "credentials_tab",
+  "credentials"
  ],
  "fields": [
-  {
-   "fieldname": "cuit",
-   "fieldtype": "Data",
-   "label": "CUIT",
-   "translatable": 1
-  },
-  {
-   "fieldname": "token",
-   "fieldtype": "Data",
-   "label": "Token",
-   "translatable": 1
-  },
-  {
-   "fieldname": "sign",
-   "fieldtype": "Data",
-   "label": "Sign",
-   "translatable": 1
-  },
-  {
-   "default": "0",
-   "fieldname": "use_sandbox_environment",
-   "fieldtype": "Check",
-   "label": "Use SandBox Environment"
-  },
-  {
-   "fieldname": "column_break_phbr",
-   "fieldtype": "Column Break"
-  },
-  {
-   "fieldname": "certificate",
-   "fieldtype": "Attach",
-   "label": "Certificate"
-  },
-  {
-   "fieldname": "private_key",
-   "fieldtype": "Attach",
-   "label": "Private key"
-  },
-  {
-   "default": "0",
-   "fieldname": "check_afip_invoice_number_consistency",
-   "fieldtype": "Check",
-   "label": "Check AFIP Invoice Number Consistency"
-  },
   {
    "fieldname": "section_break_aexw",
    "fieldtype": "Section Break"
@@ -76,13 +25,19 @@
    "fieldname": "credentials_tab",
    "fieldtype": "Tab Break",
    "label": "Credentials"
+  },
+  {
+   "fieldname": "credentials",
+   "fieldtype": "Table",
+   "label": "Credentials",
+   "options": "Credentials"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "issingle": 1,
  "links": [],
- "modified": "2025-11-13 09:17:15.850030",
+ "modified": "2025-11-19 05:21:27.679363",
  "modified_by": "Administrator",
  "module": "Argentina Compliance",
  "name": "AFIP Setting",

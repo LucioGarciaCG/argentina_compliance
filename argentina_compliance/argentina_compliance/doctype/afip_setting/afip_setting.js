@@ -24,6 +24,54 @@ frappe.ui.form.on("AFIP Setting", {
                 );
             }
         });
+       frm.doc.credentials.forEach(row => {
+
+    // 1) Current bench time in UTC
+            let now_utc = new Date(frappe.datetime.now_datetime(true) + "Z");
+            console.log("NOW UTC:", now_utc.toISOString());
+
+            // If no expiry time
+            if (!row.expiration_time) {
+                row.status = "";
+                return;
+            }
+
+            // 2) Clean the AFIP timestamp
+            let exp_str = row.expiration_time
+                .replace(" UTC", "")
+                .replace(/\.\d+$/, "");
+
+            // 3) Parse expiration time as **Argentina Time (UTC-3)**
+            // Force offset: -03:00
+            let exp_art = new Date(exp_str.replace(" ", "T") + "-03:00");
+
+            if (isNaN(exp_art.getTime())) {
+                console.warn("Invalid expiration_time:", row.expiration_time);
+                row.status = "Invalid Format";
+                return;
+            }
+
+            // Convert ART → UTC automatically through JS
+            let exp_utc = new Date(exp_art.toISOString());
+
+            console.log("EXP ART:", exp_art.toString());
+            console.log("EXP UTC:", exp_utc.toISOString());
+
+            // 4) Compare in UTC
+            row.status = now_utc > exp_utc ? "Invalid" : "Valid";
+
+});
+
+frm.refresh_field("credentials");
+
     }
 });
+
+
+// ffrappe.ui.form.on("AFIP Setting", {
+//     refresh: function(frm) {
+        
+//     }
+// });
+
 

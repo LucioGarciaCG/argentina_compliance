@@ -20,6 +20,7 @@ def extract_invoice_number(invoice_name, invoice_type):
     Returns:
         int: Sequence number for AFIP
     """
+    
     try:
         # Debug log
         # frappe.log_error(
@@ -45,22 +46,26 @@ def extract_invoice_number(invoice_name, invoice_type):
         sales_invoice = frappe.get_doc("Sales Invoice", invoice_name)
         afip_details = frappe.get_single("AFIP Setting")
 
-        # 🔹 Get POS number dynamically based on Sales Invoice naming series
+        # Get POS number dynamically based on Sales Invoice naming series
         pos_number = None
         for series in afip_details.sales_invoice_naming_series:
             if series.naming_series == sales_invoice.naming_series:
                 pos_number = int(series.pos_number)
                 break
-        # frappe.throw(str(pos_number))
         # Get the number from AFIP to verify
-        # pos_number = 1  # Default POS number, adjust if needed
         afip_details = frappe.get_doc("AFIP Setting")
-        client = get_afip_client(afip_details)
-
+        
+        credential_row = None
+        for r in afip_details.credentials:
+            if r.company == sales_invoice.company:
+                credential_row = r
+                break
+            
+        client = get_afip_client(credential_row)
         auth = {
-            "Token": afip_details.token.strip(),
-            "Sign": afip_details.sign.strip(),
-            "Cuit": int(afip_details.cuit),
+            "Token": credential_row.token.strip(),
+            "Sign": credential_row.sign.strip(),
+            "Cuit": int(credential_row.cuit),
         }
 
         last_afip_number = get_last_authorized_invoice(
@@ -180,7 +185,7 @@ def get_customer_type(sales_invoice):
         return 1  # Default to type 1 if error occurs
 
 
-def get_next_number(invoice_type, pos_number):
+def get_next_number(invoice_type, pos_number,credential_row):
     """
     Get the next available number for a specific invoice type and POS
     Args:
@@ -191,14 +196,13 @@ def get_next_number(invoice_type, pos_number):
     """
     try:
         # Get AFIP settings and client
-        afip_details = frappe.get_doc("AFIP Setting")
-        client = get_afip_client(afip_details)
+        client = get_afip_client(credential_row)
 
         # Get authentication data
         auth = {
-            "Token": afip_details.token.strip(),
-            "Sign": afip_details.sign.strip(),
-            "Cuit": int(afip_details.cuit),
+            "Token": credential_row.token.strip(),
+            "Sign": credential_row.sign.strip(),
+            "Cuit": int(credential_row.cuit),
         }
 
         # Get last authorized number from AFIP
@@ -221,12 +225,17 @@ def validate_invoice_sequence(sales_invoice):
     try:
         pos_number = int(sales_invoice.pos_profile) if sales_invoice.pos_profile else 1
         invoice_type = get_invoice_type(sales_invoice)
-
+        afip_details = frappe.get_doc("AFIP Settings")
         # Get the numeric sequence from invoice name
         current_number = extract_invoice_number(sales_invoice.name, invoice_type)
+        credential_row = None
+        for r in afip_details.credentials:
+            if r.company == sales_invoice.company:
+                credential_row = r
+                break
 
         # Get what should be the next number from AFIP
-        expected_number = get_next_number(invoice_type, pos_number)
+        expected_number = get_next_number(invoice_type, pos_number,credential_row)
         
 
         if current_number != expected_number:
@@ -239,29 +248,37 @@ def validate_invoice_sequence(sales_invoice):
         frappe.throw(f"Error validating invoice sequence: {str(e)}")
 
 
-def get_afip_client(afip_details):
-    """
-    Initialize and return AFIP SOAP client based on environment settings
+import ssl
+import requests
+from zeep import Client
+from zeep.transports import Transport
 
-    Args:
-        afip_details: AFIP Setting document with configuration
+def get_afip_client(credential_row):
+    # Select correct WSDL
+    if credential_row.use_sandbox_environment:
+        wsdl = "https://wswhomo.afip.gov.ar/wsfev1/service.asmx?WSDL"
+    else:
+        wsdl = "https://servicios1.afip.gov.ar/wsfev1/service.asmx?WSDL"
 
-    Returns:
-        zeep.Client: Initialized SOAP client for AFIP web services
-    """
     try:
-        # Determine WSDL URL based on environment
-        if afip_details.use_sandbox_environment:
-            wsdl = "https://wswhomo.afip.gov.ar/wsfev1/service.asmx?WSDL"
-        else:
-            wsdl = "https://servicios1.afip.gov.ar/wsfev1/service.asmx?WSDL"
+        # --- FIX: Create correct SSL context ---
+        ssl_ctx = ssl.create_default_context()
+        ssl_ctx.set_ciphers("DEFAULT:@SECLEVEL=1")  # AFIP requires lower seclevel
 
-        # Initialize ZEEP client
-        client = zeep.Client(wsdl=wsdl)
+        session = requests.Session()
+        session.verify = True
+        session.mount("https://", requests.adapters.HTTPAdapter())
+
+        # Pass SSL context into Transport
+        transport = Transport(session=session, timeout=30)
+        transport.ssl_context = ssl_ctx
+
+        client = Client(wsdl=wsdl, transport=transport)
         return client
 
     except Exception as e:
-        frappe.throw(f"Error initializing AFIP client: {str(e)}")
+        frappe.throw(f"Error initializing AFIP client: {e}")
+
 
 
 def get_last_authorized_invoice(client, auth, pos_number, invoice_type):
@@ -287,18 +304,32 @@ def generate_invoice(salesInvoice):
         frappe.throw("You do not have permission to access AFIP Settings.")
     try:
         # Get AFIP settings
-        afip_details = frappe.get_doc("AFIP Setting")
-        if not all([afip_details.token, afip_details.sign, afip_details.cuit]):
+        afip_details = frappe.get_single("AFIP Setting")
+        sales_invoice = frappe.get_doc("Sales Invoice", salesInvoice)
+    
+        credential_row = None
+        for r in afip_details.credentials:
+            if r.company == sales_invoice.company:
+                credential_row = r
+                break
+        # credential_row = next(
+        #     (r for r in afip_details.credentials if r.company == sales_invoice.company),
+        #     None
+        # )
+        
+        
+        if not all([credential_row.token, credential_row.sign, credential_row.cuit]):
             frappe.throw("Missing AFIP credentials. Please check AFIP Settings.")
 
         # Initialize WSFE client
-        client = get_afip_client(afip_details)
-
+        client = get_afip_client(credential_row)
+        
+        
         # Prepare authentication data
         auth = {
-            "Token": afip_details.token.strip(),
-            "Sign": afip_details.sign.strip(),
-            "Cuit": int(afip_details.cuit),
+            "Token": credential_row.token.strip(),
+            "Sign": credential_row.sign.strip(),
+            "Cuit": int(credential_row.cuit),
         }
 
         # Get sales invoice details
@@ -332,7 +363,7 @@ def generate_invoice(salesInvoice):
         expected_number = last_invoice + 1
         
         afip_details = frappe.get_single("AFIP Setting")
-        if afip_details.check_afip_invoice_number_consistency:
+        if credential_row.check_afip_invoice_number_consistency:
             if current_number != expected_number:
                 frappe.throw(
                     f"Invalid invoice number sequence. Expected {expected_number}, got {current_number}. "
@@ -525,9 +556,9 @@ def generate_invoice(salesInvoice):
                 "error_args": getattr(e, "args", []),
                 "error_message": str(e),
                 "afip_details": {
-                    "token_exists": bool(afip_details.token),
-                    "sign_exists": bool(afip_details.sign),
-                    "cuit_exists": bool(afip_details.cuit),
+                    "token_exists": bool(credential_row.token),
+                    "sign_exists": bool(credential_row.sign),
+                    "cuit_exists": bool(credential_row.cuit),
                 },
             }
             error_msg = f"AFIP Webservice Error - Details: {json.dumps(detailed_error, indent=2)}"
@@ -587,21 +618,26 @@ def format_afip_errors(errors):
         )
 
 
-def get_company_cuit():
+def get_company_cuit(sales_invoice):
     """Fetch CUIT from AFIP Settings
 
     Returns:
         str: Company CUIT number or None if not found
     """
     try:
-        afip_settings = frappe.get_single("AFIP Setting")
-        if not afip_settings.cuit:
+        afip_details = frappe.get_single("AFIP Setting")
+        credential_row = None
+        for r in afip_details.credentials:
+            if r.company == sales_invoice.company:
+                credential_row = r
+                break
+        if not credential_row.cuit:
             frappe.log_error(
                 message="CUIT not configured in AFIP Settings",
                 title="AFIP Configuration Error",
             )
             return None
-        return afip_settings.cuit.replace("-", "").strip()
+        return credential_row.cuit.replace("-", "").strip()
     except Exception as e:
         frappe.log_error(
             message=f"Error fetching CUIT from AFIP Settings: {str(e)}",
@@ -620,10 +656,15 @@ from io import BytesIO
 def generate_qr_code(invoice, cae, cae_vto):
     try:
         # Your existing data preparation code remains the same
+        afip_details = frappe.get_doc("AFIP Setting")
+        for r in afip_details.credentials:
+            if r.company == invoice.company:
+                credential_row = r
+                break
         data = {
             "ver": 1,
             "fecha": invoice.posting_date.strftime("%Y-%m-%d"),
-            "cuit": int(frappe.db.get_single_value("AFIP Setting", "cuit")),
+            "cuit": int(credential_row.cuit),
             "ptoVta": int(invoice.pos_profile) if invoice.pos_profile else 1,
             "tipoCmp": get_invoice_type(invoice),
             "nroCmp": int(invoice.name.split("-")[-1]),
@@ -687,7 +728,12 @@ def cancel_invoice(salesInvoice):
     try:
         # Get AFIP settings
         afip_details = frappe.get_doc("AFIP Setting")
-        if not all([afip_details.token, afip_details.sign, afip_details.cuit]):
+        credential_row = None
+        for r in afip_details.credentials:
+            if r.company == sales_invoice.company:
+                credential_row = r
+                break
+        if not all([credential_row.token, credential_row.sign, credential_row.cuit]):
             frappe.throw("Missing AFIP credentials. Please check AFIP Settings.")
 
         # Get sales invoice details
@@ -699,13 +745,13 @@ def cancel_invoice(salesInvoice):
         pos_number = int(sales_invoice.pos_profile) if sales_invoice.pos_profile else 1
 
         # Initialize WSFE client
-        client = get_afip_client(afip_details)
+        client = get_afip_client(credential_row)
 
         # Create authentication header
         auth = {
-            "Token": afip_details.token.strip(),
-            "Sign": afip_details.sign.strip(),
-            "Cuit": int(afip_details.cuit),
+            "Token": credential_row.token.strip(),
+            "Sign": credential_row.sign.strip(),
+            "Cuit": int(credential_row.cuit),
         }
 
         # Log starting state
