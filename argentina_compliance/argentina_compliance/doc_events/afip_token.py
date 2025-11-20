@@ -6,6 +6,9 @@ import requests
 from zeep import Client
 import os
 from dateutil import parser
+from argentina_compliance.argentina_compliance.doctype.electronic_invoice_log.electronic_invoice_log import (
+    log_electronic_invoice_response,
+)
 
 def check_token_validity(row):
     """Check if the existing token is still valid"""
@@ -38,18 +41,9 @@ def get_afip_token(row):
     try:
         settings = frappe.get_doc("AFIP Setting")
         
-        # Find the child row
-        # row = next((r for r in settings.credentials if r.name == row_name), None)
         if not row:
             frappe.throw("Credentials row not found")
         
-        # 1) USE VALID TOKEN
-        if check_token_validity(row):
-            frappe.msgprint(f"Using existing valid token for row {row}")
-            return {"success": True, "token": row.token, "sign": row.sign,"row": row.as_dict()   }
-
-        # 2) GENERATE NEW TOKEN
-        # Set the service ID (replace with your actual service ID)
         servicio_id = "wsfe"
         
         if not row.certificate:
@@ -75,7 +69,6 @@ def get_afip_token(row):
         servicio_id = "wsfe"
         dt_now = datetime.datetime.utcnow()
 
-        # XML creation
         # Create XML structure
         root = ET.Element("loginTicketRequest")
         header = ET.SubElement(root, "header")
@@ -142,16 +135,25 @@ def get_afip_token(row):
                 settings.save()
 
                 frappe.msgprint(f"AFIP token and sign updated successfully")
+                #Create Success Log 
+                log_electronic_invoice_response(
+                    doctype="AFIP Setting",
+                    title=f"AFIP token and sign Renewed successfully valid till {expiration_time}",
+                    status="Success",
+                    message=(
+                        f"Token : {token}\nSign : {sign}\nValid Till : {expiration_time}"
+                    ),
+                )
                 return {"success": True, "token": token, "sign": sign}
             else:
                 frappe.error_log(f"Token Renew Failed: " )
 
         except Exception as e:
             frappe.log_error(
-                f"AFIP Token Generation Error: {str(e)}")
+                f"AFIP Token Scheduled renewal Error: {str(e)}")
             frappe.msgprint(
               
-                f"Error in AFIP token generation: {str(e)}\n\n"
+                f"Error in AFIP Scheduled renewal Error: {str(e)}\n\n"
                 f"Stored Expiration: {row.expiration_time or 'Not Set'}"
             )
         finally:
@@ -162,8 +164,8 @@ def get_afip_token(row):
                         
     except Exception as e:
 
-        frappe.log_error(f"AFIP Token Generation Error: {str(e)}")
-        frappe.throw(f"Error in AFIP token generation: {str(e)}")
+        frappe.log_error(f"AFIP Token Scheduled renewal Error: {str(e)}")
+        frappe.throw(f"Error in AFIP token Scheduled renewal: {str(e)}")
         return {"success": False, "message": str(e)}
     
 
@@ -172,5 +174,6 @@ def get_afip_token(row):
 def renew_all_afip_tokens():
     settings = frappe.get_doc("AFIP Setting")
     for row in settings.credentials:
-        get_afip_token(row)
+        if row.cuit and row.certificate and row.private_key:
+            get_afip_token(row)
    

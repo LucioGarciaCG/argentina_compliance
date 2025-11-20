@@ -182,7 +182,7 @@ scheduler_events = {
 # 		"argentina_compliance.tasks.monthly"
 # 	],
 		"cron": {
-			"1 * * * *": [
+			"0 */12 * * *": [
 				"argentina_compliance.argentina_compliance.doc_events.afip_token.renew_all_afip_tokens"
 			]
 		}

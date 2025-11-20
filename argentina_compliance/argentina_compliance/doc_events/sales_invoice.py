@@ -22,12 +22,6 @@ def extract_invoice_number(invoice_name, invoice_type):
     """
     
     try:
-        # Debug log
-        # frappe.log_error(
-        #     message=f"Extracting number from: {invoice_name} for type: {invoice_type}",
-        #     title="Invoice Number Extraction Debug"
-        # )
-
         # Split the invoice name and get the last part
 
         parts = invoice_name.split("-")
@@ -75,19 +69,6 @@ def extract_invoice_number(invoice_name, invoice_type):
             return parsed_number
         next_afip_number = last_afip_number + 1
 
-        # Debug log
-        # frappe.log_error(
-        #     message=f"""
-        #     Invoice parsing details:
-        #     - Original invoice name: {invoice_name}
-        #     - Parts: {parts}
-        #     - Extracted number: {numeric_part}
-        #     - Converted to int: {int(numeric_part)}
-        #     - Last AFIP number: {last_afip_number}
-        #     - Next AFIP number: {next_afip_number}
-        #     """,
-        #     title="Invoice Number Details"
-        # )
 
         # Return the next AFIP number to ensure sequence
         return next_afip_number
@@ -116,15 +97,6 @@ def get_invoice_type(sales_invoice):
             "Customer", sales_invoice.customer, "custom_vat_status"
         )
 
-        # Debug log customer details
-        # frappe.log_error(
-        #     message=f"""
-        #     Customer VAT details:
-        #     - Customer: {sales_invoice.customer}
-        #     - VAT Status: {vat_status}
-        #     """,
-        #     title="Customer VAT Status"
-        # )
 
         mapping = {
             "Final Consumer": 6,
@@ -136,11 +108,6 @@ def get_invoice_type(sales_invoice):
 
         invoice_type = mapping.get(vat_status, 1)
 
-        # Debug log result
-        # frappe.log_error(
-        #     message=f"Mapped invoice type: {invoice_type}",
-        #     title="Invoice Type Result"
-        # )
 
         return invoice_type
 
