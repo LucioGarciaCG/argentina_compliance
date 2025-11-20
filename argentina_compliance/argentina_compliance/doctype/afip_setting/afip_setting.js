@@ -62,16 +62,47 @@ frappe.ui.form.on("AFIP Setting", {
 
 });
 
-frm.refresh_field("credentials");
+        frm.refresh_field("credentials");
 
     }
 });
 
 
-// ffrappe.ui.form.on("AFIP Setting", {
-//     refresh: function(frm) {
-        
-//     }
-// });
+
+
+
+frappe.ui.form.on("Credentials", {
+    generate_token: function(frm, cdt, cdn) {
+        let row = locals[cdt][cdn];
+        console.log("de de ");
+        // frappe.alert({
+        //     message: `Token generated for <b>${row.company}</b>`,
+        //     indicator: "green"
+        // });
+        console.log(row.company);
+        frappe.call({
+            method: "argentina_compliance.argentina_compliance.doc_events.afip_token.get_afip_token",
+            args: {
+                row:row
+            },
+            callback(r) {
+                if (r.message) {
+
+                    // Clean expiration time format → remove microseconds
+                    let expiration_raw = r.message.expiration_time;
+                    let expiration_clean = expiration_raw.split(".")[0];  
+                    // Result example: "2025-11-20 22:55:00"
+
+                    frappe.model.set_value(cdt, cdn, "token", r.message.token);
+                    frappe.model.set_value(cdt, cdn, "sign", r.message.sign);
+                    frappe.model.set_value(cdt, cdn, "expiration_time", expiration_clean);
+
+                    frm.refresh_field("credentials");
+                }
+            }
+        });
+    }
+});
+
 
 

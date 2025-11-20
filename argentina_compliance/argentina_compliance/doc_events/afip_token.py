@@ -1,6 +1,7 @@
-import frappe
+import frappe, json
 import datetime
 import xml.etree.ElementTree as ET
+from frappe import _dict
 import subprocess
 import requests
 from zeep import Client
@@ -37,7 +38,9 @@ def check_token_validity(row):
 
 
 #Old and Correct Code
+@frappe.whitelist()
 def get_afip_token(row):
+    row = _dict(json.loads(row))
     try:
         settings = frappe.get_doc("AFIP Setting")
         
@@ -144,7 +147,7 @@ def get_afip_token(row):
                         f"Token : {token}\nSign : {sign}\nValid Till : {expiration_time}"
                     ),
                 )
-                return {"success": True, "token": token, "sign": sign}
+                return {"success": True, "token": token, "sign": sign, "expiration_time":expiration_time}
             else:
                 frappe.error_log(f"Token Renew Failed: " )
 

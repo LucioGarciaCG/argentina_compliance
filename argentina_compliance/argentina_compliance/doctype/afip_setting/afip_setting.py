@@ -1,6 +1,7 @@
 # Copyright (c) 2024, Finbyz Tech Pvt Ltd and contributors
 # For license information, please see license.txt
 
+import json
 import frappe
 import traceback
 from frappe.model.document import Document
@@ -23,3 +24,8 @@ class AFIPSetting(Document):
             seen[row.company] = row.idx
     
     
+
+@frappe.whitelist()
+def create_new_token(row):
+    row = json.loads(row) 
+    return get_afip_token(row)
