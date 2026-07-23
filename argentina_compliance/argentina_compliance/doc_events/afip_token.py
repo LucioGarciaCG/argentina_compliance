@@ -37,24 +37,61 @@ def check_token_validity(row):
 
 
 
-#Old and Correct Code
+# Roles allowed to generate or renew AFIP tokens. Generating a token signs a
+# request with the company's AFIP private key, so this is deliberately narrow.
+TOKEN_ROLES = ("System Manager", "Accounts Manager")
+
+
+def _resolve_credentials_row(settings, row_data):
+    """Find the real Credentials child row, server-side.
+
+    ``row_data`` comes from the browser and is treated as untrusted: only its
+    identifying fields are used to look the row up. The certificate and private
+    key paths are always read from the stored document, never from the payload,
+    so a caller cannot point openssl at an arbitrary file.
+    """
+    name = (row_data.get("name") or "").strip()
+    company = (row_data.get("company") or "").strip()
+
+    for row in settings.credentials:
+        if name and row.name == name:
+            return row
+
+    # AFIPSetting.validate() enforces one credentials row per company.
+    for row in settings.credentials:
+        if company and row.company == company:
+            return row
+
+    frappe.throw("No AFIP credentials row found for the requested company")
+
+
 @frappe.whitelist()
 def get_afip_token(row):
-    row = _dict(json.loads(row))
+    """Whitelisted entry point. Resolves the row server-side, then delegates."""
+    frappe.only_for(TOKEN_ROLES)
+
+    settings = frappe.get_doc("AFIP Setting")
+    settings.check_permission("write")
+
+    real_row = _resolve_credentials_row(settings, _dict(json.loads(row)))
+    return _generate_token_for_row(settings, real_row)
+
+
+def _generate_token_for_row(settings, row):
+    """Request a WSAA token for ``row`` and persist it.
+
+    ``row`` must be the real child Document out of ``settings.credentials``.
+    Mutating a detached copy (for example a ``_dict`` from ``json.loads``) does
+    not survive ``settings.save()`` — that is how the token used to come back
+    successfully in the UI while the column stayed NULL in the database.
+    """
     try:
-        settings = frappe.get_doc("AFIP Setting")
-        
-        if not row:
-            frappe.throw("Credentials row not found")
-        
-        servicio_id = "wsfe"
-        
         if not row.certificate:
             frappe.throw("Certificate field is empty in this credential row")
         if not row.private_key:
             frappe.throw("Private Key field is empty in this credential row")
 
-                
+        # Read from the stored document, never from the client payload.
         certificado = row.certificate  # e.g. '/private/files/finbyzCerficate.crt'
         clave_privada = row.private_key  # e.g. '/private/files/finbyz_key.key'
 
@@ -130,7 +167,8 @@ def get_afip_token(row):
             expiration_time = parser.isoparse(exp)
             expiration_time = expiration_time.astimezone(datetime.timezone.utc).replace(tzinfo=None)
             
-            # SAVE IN ROW ONLY
+            # Mutate the real child Document, then save the parent. `row` is
+            # attached to `settings`, so this actually reaches the database.
             if token and sign and expiration_time:
                 row.token = token
                 row.sign = sign
@@ -175,8 +213,27 @@ def get_afip_token(row):
 
 @frappe.whitelist()
 def renew_all_afip_tokens():
+    """Scheduled every 12h from hooks.py, and callable from the UI.
+
+    Iterates the credentials rows and calls the helper directly. It used to
+    call get_afip_token(row), passing a Document where a JSON string was
+    expected, which raised TypeError on the first row — so the scheduled
+    renewal never actually ran.
+    """
+    if frappe.session.user != "Administrator":
+        frappe.only_for(TOKEN_ROLES)
+
     settings = frappe.get_doc("AFIP Setting")
+
     for row in settings.credentials:
-        if row.cuit and row.certificate and row.private_key:
-            get_afip_token(row)
+        if not (row.cuit and row.certificate and row.private_key):
+            continue
+        try:
+            _generate_token_for_row(settings, row)
+        except Exception:
+            # One bad company must not stop the others from renewing.
+            frappe.log_error(
+                title=f"AFIP token renewal failed for {row.company}",
+                message=frappe.get_traceback(),
+            )
    

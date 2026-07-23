@@ -1,7 +1,6 @@
 # Copyright (c) 2024, Finbyz Tech Pvt Ltd and contributors
 # For license information, please see license.txt
 
-import json
 import frappe
 import traceback
 from frappe.model.document import Document
@@ -27,5 +26,10 @@ class AFIPSetting(Document):
 
 @frappe.whitelist()
 def create_new_token(row):
-    row = json.loads(row) 
+    """Thin alias kept for backwards compatibility.
+
+    It used to json.loads() the payload and hand a dict to get_afip_token(),
+    which json.loads() it again — a TypeError on every call. get_afip_token()
+    now owns parsing, the permission check and the server-side row lookup.
+    """
     return get_afip_token(row)
