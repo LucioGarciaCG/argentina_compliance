@@ -70,10 +70,15 @@ def get_afip_token(row):
     """Whitelisted entry point. Resolves the row server-side, then delegates."""
     frappe.only_for(TOKEN_ROLES)
 
+    # Frappe hands whitelisted object args over as a JSON string, but accept a
+    # mapping too: passing the wrong one of the two is what broke both
+    # create_new_token() and renew_all_afip_tokens().
+    row_data = _dict(json.loads(row)) if isinstance(row, str) else _dict(row)
+
     settings = frappe.get_doc("AFIP Setting")
     settings.check_permission("write")
 
-    real_row = _resolve_credentials_row(settings, _dict(json.loads(row)))
+    real_row = _resolve_credentials_row(settings, row_data)
     return _generate_token_for_row(settings, real_row)
 
 
