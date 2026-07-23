@@ -176,13 +176,17 @@ def _generate_token_for_row(settings, row):
                 settings.save()
 
                 frappe.msgprint(f"AFIP token and sign updated successfully")
-                #Create Success Log 
+                # Success log. The token and sign are credentials: they are
+                # never written to the log, which is readable in the UI and
+                # persisted in the database. Log status and validity only.
                 log_electronic_invoice_response(
                     doctype="AFIP Setting",
                     title=f"AFIP token and sign Renewed successfully valid till {expiration_time}",
                     status="Success",
                     message=(
-                        f"Token : {token}\nSign : {sign}\nValid Till : {expiration_time}"
+                        f"Company : {row.company}\n"
+                        f"CUIT : {row.cuit}\n"
+                        f"Valid Till : {expiration_time}"
                     ),
                 )
                 return {"success": True, "token": token, "sign": sign, "expiration_time":expiration_time}
