@@ -117,7 +117,17 @@ def _generate_token_for_row(settings, row):
         expiration_time = ET.SubElement(header, "expirationTime")
         service = ET.SubElement(root, "service")
 
-        generation_time.text = (dt_now).strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z"
+        # WORKAROUND (clock skew): WSAA rejects a login ticket whose
+        # generationTime it considers to be in the future. Between our clock,
+        # network latency and AFIP's own clock, a generationTime of "now"
+        # arrives a fraction of a second ahead and gets refused. Back-dating it
+        # 10 minutes gives enough slack to absorb that.
+        #
+        # This is a workaround, not a fix: the real requirement is NTP on the
+        # host. expirationTime is deliberately still computed from dt_now, so
+        # the ticket keeps its normal 10-minute validity rather than expiring
+        # the instant it is issued.
+        generation_time.text = (dt_now - datetime.timedelta(minutes=10)).strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z"
         expiration_time.text = (dt_now + datetime.timedelta(minutes=10)).strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z"
         unique_id.text = dt_now.strftime("%y%m%d%H%M")
         service.text = servicio_id
