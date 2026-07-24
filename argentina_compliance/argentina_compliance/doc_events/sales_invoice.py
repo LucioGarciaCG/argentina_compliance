@@ -120,11 +120,15 @@ def get_invoice_type(sales_invoice):
 
 def get_customer_type(sales_invoice):
     """
-    Map ERPNext invoice types to AFIP types
-    Args:
-        sales_invoice: Sales Invoice document
+    Map the customer's VAT status to AFIP's "Condición IVA Receptor" code.
+
+    AFIP's FECAEDetRequest field CondicionIVAReceptorId is an Int32. Returning
+    the human-readable label (e.g. "Consumidor Final") makes AFIP fail XML
+    deserialization with "Input string was not in a correct format", so this
+    must return the numeric code from FEParamGetCondicionIvaReceptor.
+
     Returns:
-        int: AFIP invoice type code
+        int: AFIP CondicionIVAReceptorId code
     """
     try:
 
@@ -133,23 +137,24 @@ def get_customer_type(sales_invoice):
             "Customer", sales_invoice.customer, "custom_vat_status"
         )
 
+        # AFIP CondicionIVAReceptorId codes (FEParamGetCondicionIvaReceptor)
         mapping = {
-            "Final Consumer": "Consumidor Final",
-            "Exempt": "Exento",
-            "Monotributo Manager": "Responsable Monotributo",
-            "Registered Responsible": "Responsable Inscripto",
-            "Uncategorized": "No Categorizado",
+            "Final Consumer": 5,          # Consumidor Final
+            "Exempt": 4,                  # IVA Sujeto Exento
+            "Monotributo Manager": 6,     # Responsable Monotributista
+            "Registered Responsible": 1,  # IVA Responsable Inscripto
+            "Uncategorized": 7,           # Sujeto No Categorizado
         }
 
-        customer_type = mapping.get(vat_status, 1)
-
-        return customer_type
+        # Default to Consumidor Final (5) when the status is unset/unknown.
+        return mapping.get(vat_status, 5)
 
     except Exception as e:
         frappe.log_error(
-            message=f"Error in get_invoice_type: {str(e)}", title="Invoice Type Error"
+            message=f"Error in get_customer_type: {str(e)}", title="Customer Type Error"
         )
-        return 1  # Default to type 1 if error occurs
+        # Never return None: the caller puts this straight into the AFIP XML.
+        return 5
 
 
 def get_next_number(invoice_type, pos_number,credential_row):
